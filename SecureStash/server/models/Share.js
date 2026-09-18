@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { LocalShare } = require("../config/localStore");
 
 const shareSchema = new mongoose.Schema(
     {
@@ -43,4 +44,18 @@ shareSchema.index({ folder: 1, sharedWith: 1 });
 shareSchema.index({ sharedWith: 1 });
 shareSchema.index({ owner: 1 });
 
-module.exports = mongoose.model("Share", shareSchema);
+const MongooseShare = mongoose.model("Share", shareSchema);
+
+const ShareProxy = new Proxy(MongooseShare, {
+    get(target, prop, receiver) {
+        if (mongoose.connection.readyState === 1) {
+            return Reflect.get(target, prop, receiver);
+        }
+        if (typeof LocalShare[prop] === "function") {
+            return LocalShare[prop].bind(LocalShare);
+        }
+        return Reflect.get(target, prop, receiver);
+    }
+});
+
+module.exports = ShareProxy;

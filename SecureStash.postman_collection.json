@@ -29,8 +29,9 @@
                   "if (pm.response.code === 201) {",
                   "    var json = pm.response.json();",
                   "    if (json.token) {",
+                  "        pm.collectionVariables.set('token', json.token);",
                   "        pm.environment.set('token', json.token);",
-                  "        console.log('Token automatically saved to environment!');",
+                  "        console.log('Token automatically saved!');",
                   "    }",
                   "}"
                 ],
@@ -77,8 +78,9 @@
                   "if (pm.response.code === 200) {",
                   "    var json = pm.response.json();",
                   "    if (json.token) {",
+                  "        pm.collectionVariables.set('token', json.token);",
                   "        pm.environment.set('token', json.token);",
-                  "        console.log('Token automatically saved to environment!');",
+                  "        console.log('Token automatically saved!');",
                   "    }",
                   "}"
                 ],
@@ -652,6 +654,26 @@
     {
       "key": "baseUrl",
       "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "folderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "fileId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "shareId",
+      "value": "",
       "type": "string"
     }
   ]
