@@ -24,11 +24,23 @@ const shareSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true
+        },
+
+        permission: {
+            type: String,
+            enum: ["view", "download"],
+            default: "download"
         }
     },
     {
         timestamps: true
     }
 );
+
+// Compound indexes to prevent duplicate shares and speed up collaborator queries
+shareSchema.index({ file: 1, sharedWith: 1 });
+shareSchema.index({ folder: 1, sharedWith: 1 });
+shareSchema.index({ sharedWith: 1 });
+shareSchema.index({ owner: 1 });
 
 module.exports = mongoose.model("Share", shareSchema);

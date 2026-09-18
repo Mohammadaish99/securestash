@@ -255,14 +255,37 @@ router.get("/", protect, async (req, res) => {
 });
 
 // ===============================
-// SECURE FILE DOWNLOAD
+// SECURE FILE DOWNLOAD (OWNER OR SHARED COLLABORATOR)
 // ===============================
 router.get("/download/:id", protect, async (req, res) => {
     try {
-        const file = await File.findOne({
+        let file = await File.findOne({
             _id: req.params.id,
             owner: req.user
         });
+
+        // If not owner, check if the file or its folder was shared with user
+        if (!file) {
+            const hasFileShare = await Share.findOne({
+                file: req.params.id,
+                sharedWith: req.user
+            });
+
+            if (hasFileShare) {
+                file = await File.findById(req.params.id);
+            } else {
+                const candidate = await File.findById(req.params.id);
+                if (candidate && candidate.folder) {
+                    const hasFolderShare = await Share.findOne({
+                        folder: candidate.folder,
+                        sharedWith: req.user
+                    });
+                    if (hasFolderShare) {
+                        file = candidate;
+                    }
+                }
+            }
+        }
 
         if (!file) {
             return res.status(404).json({
@@ -290,6 +313,91 @@ router.get("/download/:id", protect, async (req, res) => {
         });
     } catch (error) {
         console.error("Secure Download Error:", error);
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+});
+
+// ===============================
+// STREAM / PREVIEW FILE (INLINE)
+// ===============================
+router.get("/preview/:id", protect, async (req, res) => {
+    try {
+        let file = await File.findOne({
+            _id: req.params.id,
+            owner: req.user
+        });
+
+        if (!file) {
+            const hasFileShare = await Share.findOne({
+                file: req.params.id,
+                sharedWith: req.user
+            });
+            if (hasFileShare) {
+                file = await File.findById(req.params.id);
+            } else {
+                const candidate = await File.findById(req.params.id);
+                if (candidate && candidate.folder) {
+                    const hasFolderShare = await Share.findOne({
+                        folder: candidate.folder,
+                        sharedWith: req.user
+                    });
+                    if (hasFolderShare) file = candidate;
+                }
+            }
+        }
+
+        if (!file) {
+            return res.status(404).json({
+                message: "File not found or access denied"
+            });
+        }
+
+        const filePath = path.join(uploadsDir, file.name);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                message: "File missing on disk"
+            });
+        }
+
+        res.setHeader("Content-Type", file.fileType || "application/octet-stream");
+        res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file.originalName)}"`);
+        fs.createReadStream(filePath).pipe(res);
+    } catch (error) {
+        console.error("Preview Error:", error);
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+});
+
+// ===============================
+// TOGGLE STAR / FAVORITE FILE
+// ===============================
+router.patch("/:id/star", protect, async (req, res) => {
+    try {
+        const file = await File.findOne({
+            _id: req.params.id,
+            owner: req.user
+        });
+
+        if (!file) {
+            return res.status(404).json({
+                message: "File not found or access denied"
+            });
+        }
+
+        file.isStarred = !file.isStarred;
+        await file.save();
+
+        res.status(200).json({
+            message: file.isStarred ? "File starred" : "File unstarred",
+            isStarred: file.isStarred,
+            file
+        });
+    } catch (error) {
+        console.error("Star File Error:", error);
         res.status(500).json({
             message: "Server error"
         });
@@ -341,13 +449,22 @@ router.delete("/:id", protect, async (req, res) => {
 });
 
 // ===============================
-// GET FILES BY FOLDER
+// GET FILES BY FOLDER (OWNER OR SHARED)
 // ===============================
 router.get("/folder/:folderId", protect, async (req, res) => {
     try {
+        const folderId = req.params.folderId;
+        const isOwner = await Folder.findOne({ _id: folderId, owner: req.user });
+        const isShared = !isOwner && (await Share.findOne({ folder: folderId, sharedWith: req.user }));
+
+        if (!isOwner && !isShared) {
+            return res.status(403).json({
+                message: "Access denied to this folder"
+            });
+        }
+
         const files = await File.find({
-            owner: req.user,
-            folder: req.params.folderId
+            folder: folderId
         }).sort({
             createdAt: -1
         });

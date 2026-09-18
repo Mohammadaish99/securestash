@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import API, { BACKEND_URL, API_BASE_URL } from "../api/api";
+import ShareModal from "../components/ShareModal";
 
 function Dashboard({ onLogout }) {
   const [activeMenu, setActiveMenu] = useState("My Files");
   const [folders, setFolders] = useState([]);
   const [files, setFiles] = useState([]);
   const [sharedFiles, setSharedFiles] = useState([]);
+  const [sharedFolders, setSharedFolders] = useState([]);
   const [currentFolder, setCurrentFolder] = useState(null); // null means root
   const [uploadTargetFolderId, setUploadTargetFolderId] = useState("");
 
@@ -22,11 +24,18 @@ function Dashboard({ onLogout }) {
   const [urlInput, setUrlInput] = useState("");
   const [uploadingUrl, setUploadingUrl] = useState(false);
 
+  // Collaborative Sharing Modal
+  const [shareItem, setShareItem] = useState(null);
+  const [shareItemType, setShareItemType] = useState("file");
+
+  // Filters & Views (Notion / Google Drive Style)
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [viewMode, setViewMode] = useState("list"); // 'list' | 'grid'
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
-
-  const [searchQuery, setSearchQuery] = useState("");
 
   const fileInputRef = useRef(null);
 
@@ -41,18 +50,23 @@ function Dashboard({ onLogout }) {
   const fetchData = useCallback(async () => {
     try {
       if (!token) return;
-      const [folderResponse, fileResponse] = await Promise.all([
+      const [folderRes, fileRes] = await Promise.all([
         API.get("/folders"),
         API.get("/files")
       ]);
-      setFolders(folderResponse.data.folders || []);
-      setFiles(fileResponse.data.files || []);
+      setFolders(folderRes.data.folders || []);
+      setFiles(fileRes.data.files || []);
 
+      // Fetch shared resources
       try {
-        const sharedResponse = await API.get("/shares/files");
-        setSharedFiles(sharedResponse.data.shares || []);
+        const [sharedFileRes, sharedFolderRes] = await Promise.all([
+          API.get("/shares/files"),
+          API.get("/shares/folders")
+        ]);
+        setSharedFiles(sharedFileRes.data.shares || []);
+        setSharedFolders(sharedFolderRes.data.shares || []);
       } catch (e) {
-        console.warn("Shared files fetch warning:", e.message);
+        console.warn("Shared data fetch warning:", e.message);
       }
     } catch (err) {
       console.error("Dashboard Refresh Error:", err);
@@ -71,21 +85,27 @@ function Dashboard({ onLogout }) {
 
       try {
         setError("");
-        const [folderResponse, fileResponse] = await Promise.all([
+        const [folderRes, fileRes] = await Promise.all([
           API.get("/folders"),
           API.get("/files")
         ]);
 
         if (!ignore) {
-          setFolders(folderResponse.data.folders || []);
-          setFiles(fileResponse.data.files || []);
+          setFolders(folderRes.data.folders || []);
+          setFiles(fileRes.data.files || []);
         }
 
         try {
-          const sharedResponse = await API.get("/shares/files");
-          if (!ignore) setSharedFiles(sharedResponse.data.shares || []);
+          const [sharedFileRes, sharedFolderRes] = await Promise.all([
+            API.get("/shares/files"),
+            API.get("/shares/folders")
+          ]);
+          if (!ignore) {
+            setSharedFiles(sharedFileRes.data.shares || []);
+            setSharedFolders(sharedFolderRes.data.shares || []);
+          }
         } catch (e) {
-          console.warn("Shared files fetch warning:", e.message);
+          console.warn("Shared data fetch warning:", e.message);
         }
       } catch (err) {
         console.error("Dashboard Error:", err);
@@ -285,6 +305,23 @@ function Dashboard({ onLogout }) {
   };
 
   // ===============================
+  // STAR / FAVORITE TOGGLE
+  // ===============================
+  const toggleStar = async (file, e) => {
+    if (e) e.stopPropagation();
+    try {
+      const res = await API.patch(`/files/${file._id}/star`);
+      setFiles((prev) =>
+        prev.map((f) => (f._id === file._id ? { ...f, isStarred: res.data.isStarred } : f))
+      );
+      setSuccess(res.data.isStarred ? `Starred "${file.originalName}"` : `Unstarred "${file.originalName}"`);
+    } catch (err) {
+      console.error("Star toggle error:", err);
+      setError("Failed to update favorite status.");
+    }
+  };
+
+  // ===============================
   // DOWNLOAD FILE
   // ===============================
   const downloadFile = async (file) => {
@@ -306,7 +343,6 @@ function Dashboard({ onLogout }) {
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error("Download Error:", err);
-      // Fallback: direct window open with query token
       const fallbackUrl = `${API_BASE_URL}/files/download/${file._id}?token=${token}`;
       window.open(fallbackUrl, "_blank");
     } finally {
@@ -318,9 +354,9 @@ function Dashboard({ onLogout }) {
   // PREVIEW / OPEN FILE
   // ===============================
   const openFile = (file) => {
-    if (!file.fileUrl) return;
-    const directUrl = `${BACKEND_URL}${file.fileUrl}`;
-    window.open(directUrl, "_blank", "noopener,noreferrer");
+    if (!file._id) return;
+    const previewUrl = `${API_BASE_URL}/files/preview/${file._id}?token=${token}`;
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
   // ===============================
@@ -335,7 +371,6 @@ function Dashboard({ onLogout }) {
     parseFloat(((usedBytes / totalStorageBytes) * 100).toFixed(2))
   );
 
-  // Helper for size display
   const formatFileSize = (bytes) => {
     if (!bytes && bytes !== 0) return "Unknown size";
     if (bytes < 1024) return `${bytes} B`;
@@ -343,6 +378,64 @@ function Dashboard({ onLogout }) {
     if (bytes < 1024 * 1024 * 1024)
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  // Helper for file type category matching
+  const matchesCategory = (file, cat) => {
+    if (cat === "all") return true;
+    const mime = (file.fileType || "").toLowerCase();
+    const name = (file.originalName || "").toLowerCase();
+
+    if (cat === "documents") {
+      return (
+        mime.includes("pdf") ||
+        mime.includes("word") ||
+        mime.includes("officedocument") ||
+        mime.includes("text") ||
+        mime.includes("json") ||
+        mime.includes("csv") ||
+        name.endsWith(".pdf") ||
+        name.endsWith(".doc") ||
+        name.endsWith(".docx") ||
+        name.endsWith(".txt") ||
+        name.endsWith(".csv") ||
+        name.endsWith(".json") ||
+        name.endsWith(".md")
+      );
+    }
+    if (cat === "images") {
+      return mime.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(name);
+    }
+    if (cat === "media") {
+      return (
+        mime.startsWith("audio/") ||
+        mime.startsWith("video/") ||
+        /\.(mp4|mp3|wav|mov|avi|webm)$/i.test(name)
+      );
+    }
+    if (cat === "archives") {
+      return (
+        mime.includes("zip") ||
+        mime.includes("rar") ||
+        mime.includes("tar") ||
+        /\.(zip|rar|tar|gz|7z)$/i.test(name)
+      );
+    }
+    return true;
+  };
+
+  // Get icon for file
+  const getFileIcon = (file) => {
+    const mime = (file.fileType || "").toLowerCase();
+    const name = (file.originalName || "").toLowerCase();
+    if (mime.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(name)) return "🖼️";
+    if (mime.includes("pdf") || name.endsWith(".pdf")) return "📕";
+    if (mime.includes("word") || name.endsWith(".docx") || name.endsWith(".doc")) return "📘";
+    if (mime.includes("excel") || mime.includes("spreadsheet") || name.endsWith(".xlsx")) return "📊";
+    if (mime.includes("zip") || mime.includes("rar") || /\.(zip|rar|7z)$/i.test(name)) return "🗜️";
+    if (mime.startsWith("audio/") || /\.(mp3|wav)$/i.test(name)) return "🎵";
+    if (mime.startsWith("video/") || /\.(mp4|mov|webm)$/i.test(name)) return "🎥";
+    return "📄";
   };
 
   // ===============================
@@ -362,29 +455,24 @@ function Dashboard({ onLogout }) {
     let list = files;
 
     if (activeMenu === "Shared With Me") {
-      return sharedFiles
-        .map((share) => share.file)
-        .filter(Boolean)
-        .filter((file) =>
-          file.originalName.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    }
-
-    if (activeMenu === "Recent") {
+      list = sharedFiles.map((share) => ({
+        ...(share.file || {}),
+        sharedBy: share.owner,
+        sharePermission: share.permission
+      })).filter((f) => f._id);
+    } else if (activeMenu === "Starred") {
+      list = files.filter((f) => f.isStarred);
+    } else if (activeMenu === "Recent") {
       list = [...files].sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       );
+    } else if (currentFolder && activeMenu === "My Files") {
+      list = files.filter((f) => f.folder === currentFolder._id);
     }
 
-    return list.filter((file) => {
-      const matchesSearch = file.originalName
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-      if (currentFolder && activeMenu === "My Files") {
-        return matchesSearch && file.folder === currentFolder._id;
-      }
-      return matchesSearch;
-    });
+    return list
+      .filter((f) => (f.originalName || "").toLowerCase().includes(searchQuery.toLowerCase()))
+      .filter((f) => matchesCategory(f, categoryFilter));
   };
 
   const displayedFiles = getDisplayedFiles();
@@ -404,7 +492,7 @@ function Dashboard({ onLogout }) {
         <div>
           {/* Logo */}
           <div className="h-20 flex items-center px-6 border-b border-slate-800">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center mr-3 shadow-lg shadow-blue-500/30">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mr-3 shadow-lg shadow-blue-500/30">
               <span className="text-xl">🔐</span>
             </div>
             <div>
@@ -422,7 +510,7 @@ function Dashboard({ onLogout }) {
               }}
               className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center gap-3 ${
                 activeMenu === "My Files"
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-semibold"
                   : "text-slate-300 hover:bg-slate-800/70"
               }`}
             >
@@ -430,21 +518,34 @@ function Dashboard({ onLogout }) {
             </button>
 
             <button
-              onClick={() => setActiveMenu("Shared With Me")}
-              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center gap-3 ${
+              onClick={() => {
+                setActiveMenu("Shared With Me");
+                setCurrentFolder(null);
+              }}
+              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center justify-between ${
                 activeMenu === "Shared With Me"
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-semibold"
                   : "text-slate-300 hover:bg-slate-800/70"
               }`}
             >
-              <span>🤝</span> Shared With Me
+              <div className="flex items-center gap-3">
+                <span>🤝</span> Shared With Me
+              </div>
+              {(sharedFiles.length + sharedFolders.length) > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500 text-white">
+                  {sharedFiles.length + sharedFolders.length}
+                </span>
+              )}
             </button>
 
             <button
-              onClick={() => setActiveMenu("Recent")}
+              onClick={() => {
+                setActiveMenu("Recent");
+                setCurrentFolder(null);
+              }}
               className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center gap-3 ${
                 activeMenu === "Recent"
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-semibold"
                   : "text-slate-300 hover:bg-slate-800/70"
               }`}
             >
@@ -452,14 +553,24 @@ function Dashboard({ onLogout }) {
             </button>
 
             <button
-              onClick={() => setActiveMenu("Starred")}
-              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center gap-3 ${
+              onClick={() => {
+                setActiveMenu("Starred");
+                setCurrentFolder(null);
+              }}
+              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center justify-between ${
                 activeMenu === "Starred"
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-semibold"
                   : "text-slate-300 hover:bg-slate-800/70"
               }`}
             >
-              <span>⭐</span> Starred
+              <div className="flex items-center gap-3">
+                <span>⭐</span> Starred
+              </div>
+              {files.filter((f) => f.isStarred).length > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  {files.filter((f) => f.isStarred).length}
+                </span>
+              )}
             </button>
           </nav>
         </div>
@@ -468,7 +579,7 @@ function Dashboard({ onLogout }) {
         <div className="p-4">
           <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Storage</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Vault Storage</p>
               <span className="text-xs text-blue-400 font-medium">{storagePercentage}%</span>
             </div>
 
@@ -479,7 +590,7 @@ function Dashboard({ onLogout }) {
 
             <div className="w-full bg-slate-800 h-2 rounded-full mt-3 overflow-hidden">
               <div
-                className="bg-blue-500 h-full rounded-full transition-all duration-500"
+                className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.max(2, storagePercentage)}%` }}
               />
             </div>
@@ -504,7 +615,7 @@ function Dashboard({ onLogout }) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search files and folders..."
-                className="w-full rounded-xl bg-slate-100 pl-11 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition border border-transparent focus:border-blue-300"
+                className="w-full rounded-xl bg-slate-100 pl-11 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition border border-transparent focus:border-blue-300 text-sm"
               />
               {searchQuery && (
                 <button
@@ -517,50 +628,94 @@ function Dashboard({ onLogout }) {
             </div>
           </div>
 
-          {/* User Profile */}
-          <div className="flex items-center ml-4">
-            <div className="hidden sm:block text-right mr-3">
-              <p className="font-semibold text-slate-800 text-sm">{user?.name || "User"}</p>
-              <p className="text-xs text-slate-500 truncate max-w-[150px]">{user?.email || ""}</p>
+          {/* User Profile & Actions */}
+          <div className="flex items-center gap-3">
+            {/* View Mode Toggle (Grid / List) */}
+            <div className="hidden sm:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 rounded-lg text-xs font-semibold transition ${
+                  viewMode === "list" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
+                }`}
+                title="List View"
+              >
+                ☰
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded-lg text-xs font-semibold transition ${
+                  viewMode === "grid" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
+                }`}
+                title="Grid View"
+              >
+                ▦
+              </button>
             </div>
 
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/20">
-              {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
-            </div>
+            <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center shadow-md shadow-blue-500/20">
+                {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-sm font-semibold text-slate-800 leading-tight">
+                  {user?.name || "Secure User"}
+                </p>
+                <p className="text-xs text-slate-400 leading-tight">
+                  {user?.email || "Encrypted Account"}
+                </p>
+              </div>
 
-            <button
-              onClick={onLogout}
-              className="ml-3 rounded-lg px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition border border-red-200"
-            >
-              Logout
-            </button>
+              <button
+                onClick={onLogout}
+                className="ml-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </header>
 
-        {/* ================= CONTENT ================= */}
-        <section className="p-4 md:p-8 flex-1 overflow-y-auto">
-          {/* Breadcrumb / Navigation */}
-          {currentFolder && (
-            <div className="mb-4 flex items-center gap-2 text-sm text-slate-500">
-              <button
-                onClick={() => setCurrentFolder(null)}
-                className="hover:text-blue-600 font-medium"
-              >
-                My Files
-              </button>
-              <span>/</span>
-              <span className="font-semibold text-slate-800">{currentFolder.name}</span>
-            </div>
-          )}
+        {/* ================= CONTENT SECTION ================= */}
+        <section className="flex-1 p-4 md:p-8 overflow-y-auto">
+          {/* BREADCRUMBS BAR (Google Drive / Notion style) */}
+          <div className="flex items-center gap-2 text-xs text-slate-500 mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+            <button
+              onClick={() => {
+                setActiveMenu("My Files");
+                setCurrentFolder(null);
+              }}
+              className="font-semibold text-blue-600 hover:underline flex items-center gap-1"
+            >
+              <span>📁</span> My Stash
+            </button>
+            {currentFolder && (
+              <>
+                <span>/</span>
+                <span className="font-semibold text-slate-800 flex items-center gap-1">
+                  <span>📂</span> {currentFolder.name}
+                </span>
+              </>
+            )}
+            {activeMenu !== "My Files" && (
+              <>
+                <span>/</span>
+                <span className="font-semibold text-slate-800">{activeMenu}</span>
+              </>
+            )}
+          </div>
 
           {/* Heading & Action Buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
-                {currentFolder ? currentFolder.name : activeMenu}
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+                <span>{currentFolder ? `📂 ${currentFolder.name}` : activeMenu === "Starred" ? "⭐ Starred Items" : activeMenu === "Shared With Me" ? "🤝 Shared With Me" : activeMenu === "Recent" ? "🕘 Recent Files" : "📁 My Files"}</span>
               </h2>
               <p className="text-slate-500 text-sm mt-1">
-                Manage your files and folders securely in cloud stash.
+                {activeMenu === "Shared With Me"
+                  ? "Collaborative files and folders shared with your account."
+                  : activeMenu === "Starred"
+                  ? "Quick-access favorite files you have starred."
+                  : "Private, encrypted digital vault inspired by DigiLocker and Google Drive."}
               </p>
             </div>
 
@@ -569,7 +724,7 @@ function Dashboard({ onLogout }) {
               <button
                 onClick={() => fetchData()}
                 className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 transition text-sm flex items-center gap-1.5 shadow-sm"
-                title="Refresh data"
+                title="Refresh Stash"
               >
                 <span>🔄</span>
               </button>
@@ -598,7 +753,7 @@ function Dashboard({ onLogout }) {
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="rounded-xl bg-blue-600 px-5 py-2.5 font-semibold text-white hover:bg-blue-700 transition text-sm flex items-center gap-2 shadow-md shadow-blue-500/20"
+                className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 font-semibold text-white hover:from-blue-500 hover:to-indigo-500 transition text-sm flex items-center gap-2 shadow-md shadow-blue-500/20"
               >
                 <span>⬆</span> Upload File
               </button>
@@ -607,12 +762,12 @@ function Dashboard({ onLogout }) {
 
           {/* ================= SUCCESS BANNER ================= */}
           {success && (
-            <div className="mt-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-green-800 flex items-center justify-between text-sm shadow-sm animate-fade-in">
+            <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 flex items-center justify-between text-sm shadow-sm animate-fade-in">
               <div className="flex items-center gap-2">
                 <span>✅</span>
                 <span>{success}</span>
               </div>
-              <button onClick={() => setSuccess("")} className="text-green-600 hover:text-green-800 font-bold">
+              <button onClick={() => setSuccess("")} className="text-emerald-600 hover:text-emerald-800 font-bold">
                 ✕
               </button>
             </div>
@@ -633,7 +788,7 @@ function Dashboard({ onLogout }) {
 
           {/* ================= SELECTED FILE STAGING CARD ================= */}
           {selectedFile && (
-            <div className="mt-6 bg-white rounded-2xl border-2 border-blue-500 p-5 shadow-lg shadow-blue-500/10">
+            <div className="mt-6 bg-white rounded-2xl border-2 border-blue-500 p-5 shadow-lg shadow-blue-500/10 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl shrink-0">
@@ -668,9 +823,7 @@ function Dashboard({ onLogout }) {
                     onClick={() => {
                       setSelectedFile(null);
                       if (fileInputRef.current) fileInputRef.current.value = "";
-                      setError("");
                     }}
-                    disabled={uploadingFile}
                     className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
                   >
                     Cancel
@@ -696,37 +849,78 @@ function Dashboard({ onLogout }) {
             </div>
           )}
 
-          {/* ================= QUICK STATS ================= */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Files</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">
-                {loading ? "..." : files.length}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">{formatFileSize(usedBytes)} total space</p>
-            </div>
-
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Folders</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">
-                {loading ? "..." : folders.length}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">Organized workspaces</p>
-            </div>
-
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Shared Files</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">
-                {loading ? "..." : sharedFiles.length}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">Files shared with you</p>
-            </div>
+          {/* ================= CATEGORY FILTER PILLS (Notion style) ================= */}
+          <div className="flex flex-wrap items-center gap-2 mt-6">
+            {[
+              { id: "all", label: "All Items", icon: "📦" },
+              { id: "documents", label: "Documents", icon: "📑" },
+              { id: "images", label: "Images", icon: "🖼️" },
+              { id: "media", label: "Audio & Video", icon: "🎬" },
+              { id: "archives", label: "Archives", icon: "🗜️" }
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setCategoryFilter(cat.id)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
+                  categoryFilter === cat.id
+                    ? "bg-slate-900 text-white shadow"
+                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                }`}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.label}</span>
+              </button>
+            ))}
           </div>
 
-          {/* ================= FOLDERS ================= */}
+          {/* ================= SHARED FOLDERS (In Shared With Me view) ================= */}
+          {activeMenu === "Shared With Me" && sharedFolders.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
+                <span>📁 Shared Workspaces</span>
+                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                  {sharedFolders.length}
+                </span>
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sharedFolders.map((share) => {
+                  const folder = share.folder;
+                  if (!folder) return null;
+                  return (
+                    <div
+                      key={share._id}
+                      onClick={() => {
+                        setCurrentFolder(folder);
+                        setActiveMenu("My Files");
+                      }}
+                      className="bg-white rounded-2xl border border-indigo-200 p-4 hover:border-indigo-400 hover:shadow-md transition cursor-pointer group relative"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-3xl group-hover:scale-110 transition">📂</span>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          {share.permission === "view" ? "View Only" : "Can Download"}
+                        </span>
+                      </div>
+                      <h4 className="font-semibold text-slate-800 mt-3 truncate">{folder.name}</h4>
+                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                        <span>Shared by:</span>
+                        <span className="font-medium text-slate-700 truncate">{share.owner?.name || share.owner?.email}</span>
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ================= MY FOLDERS ================= */}
           {activeMenu === "My Files" && (
             <div className="mt-8">
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Folders</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Folders</h3>
+                <span className="text-xs text-slate-400">{filteredFolders.length} folders</span>
+              </div>
 
               {loading ? (
                 <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-slate-400 text-sm">
@@ -735,7 +929,7 @@ function Dashboard({ onLogout }) {
               ) : filteredFolders.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-6 text-center">
                   <p className="text-slate-400 text-sm">
-                    {searchQuery ? "No matching folders found." : "No folders created yet."}
+                    {searchQuery ? "No matching folders found." : "No folders created yet. Click '+ New Folder' to organize."}
                   </p>
                 </div>
               ) : (
@@ -756,7 +950,21 @@ function Dashboard({ onLogout }) {
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-3xl group-hover:scale-110 transition">📁</span>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1">
+                            {/* Share Folder Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShareItem(folder);
+                                setShareItemType("folder");
+                              }}
+                              className="w-7 h-7 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition text-xs"
+                              title="Share Folder Collaboratively"
+                            >
+                              👥
+                            </button>
+
+                            {/* Delete Folder Button */}
                             <button
                               onClick={(e) => deleteFolder(folder, e)}
                               className="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition text-xs opacity-0 group-hover:opacity-100"
@@ -764,7 +972,6 @@ function Dashboard({ onLogout }) {
                             >
                               🗑️
                             </button>
-                            <span className="text-xs text-slate-400 group-hover:text-blue-600">Open &rarr;</span>
                           </div>
                         </div>
                         <h4 className="font-semibold text-slate-800 mt-3 truncate">{folder.name}</h4>
@@ -782,10 +989,10 @@ function Dashboard({ onLogout }) {
             </div>
           )}
 
-          {/* ================= FILES ================= */}
+          {/* ================= FILES LIST / GRID ================= */}
           <div className="mt-8 mb-12">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">
                 {currentFolder ? `Files in "${currentFolder.name}"` : "Files"}
               </h3>
               <span className="text-xs text-slate-500 font-medium">
@@ -809,7 +1016,7 @@ function Dashboard({ onLogout }) {
                 <div className="flex justify-center gap-3 mt-4">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                    className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition shadow"
                   >
                     ⬆ Upload from Device
                   </button>
@@ -821,7 +1028,79 @@ function Dashboard({ onLogout }) {
                   </button>
                 </div>
               </div>
+            ) : viewMode === "grid" ? (
+              /* GRID VIEW */
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {displayedFiles.map((file) => (
+                  <div
+                    key={file._id}
+                    className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-blue-400 hover:shadow-md transition flex flex-col justify-between group"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <span className="text-3xl">{getFileIcon(file)}</span>
+                        <div className="flex items-center gap-1">
+                          {/* Star Toggle */}
+                          <button
+                            onClick={(e) => toggleStar(file, e)}
+                            className="w-7 h-7 rounded-lg text-xs hover:bg-amber-50 flex items-center justify-center transition"
+                            title={file.isStarred ? "Unstar" : "Star"}
+                          >
+                            {file.isStarred ? "⭐" : "☆"}
+                          </button>
+                          {/* Share File */}
+                          <button
+                            onClick={() => {
+                              setShareItem(file);
+                              setShareItemType("file");
+                            }}
+                            className="w-7 h-7 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition text-xs"
+                            title="Share File"
+                          >
+                            👥
+                          </button>
+                        </div>
+                      </div>
+
+                      <h4
+                        className="font-semibold text-slate-800 text-sm mt-3 truncate hover:text-blue-600 cursor-pointer"
+                        onClick={() => openFile(file)}
+                        title={file.originalName}
+                      >
+                        {file.originalName}
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {formatFileSize(file.fileSize)} &bull; {file.createdAt ? new Date(file.createdAt).toLocaleDateString() : ""}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
+                      <button
+                        onClick={() => openFile(file)}
+                        className="flex-1 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 text-center"
+                      >
+                        Open
+                      </button>
+                      <button
+                        onClick={() => downloadFile(file)}
+                        disabled={actionLoadingId === file._id}
+                        className="flex-1 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 text-center disabled:opacity-50"
+                      >
+                        {actionLoadingId === file._id ? "⏳" : "Download"}
+                      </button>
+                      <button
+                        onClick={() => deleteFile(file)}
+                        className="w-8 py-1.5 rounded-lg text-red-500 hover:bg-red-50 text-xs text-center"
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
+              /* LIST VIEW */
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="divide-y divide-slate-100">
                   {displayedFiles.map((file) => (
@@ -832,27 +1111,30 @@ function Dashboard({ onLogout }) {
                       {/* File Icon & Info */}
                       <div className="flex items-center min-w-0 flex-1">
                         <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-2xl mr-3 shrink-0">
-                          {file.fileType?.startsWith("image/")
-                            ? "🖼️"
-                            : file.fileType?.includes("pdf")
-                            ? "📕"
-                            : file.fileType?.includes("zip") || file.fileType?.includes("tar")
-                            ? "🗜️"
-                            : file.fileType?.includes("audio")
-                            ? "🎵"
-                            : file.fileType?.includes("video")
-                            ? "🎥"
-                            : "📄"}
+                          {getFileIcon(file)}
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p
-                            className="font-semibold text-slate-800 text-sm truncate hover:text-blue-600 cursor-pointer"
-                            onClick={() => openFile(file)}
-                            title={file.originalName}
-                          >
-                            {file.originalName}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p
+                              className="font-semibold text-slate-800 text-sm truncate hover:text-blue-600 cursor-pointer"
+                              onClick={() => openFile(file)}
+                              title={file.originalName}
+                            >
+                              {file.originalName}
+                            </p>
+                            {file.isStarred && (
+                              <span className="text-amber-400 text-xs" title="Starred file">
+                                ⭐
+                              </span>
+                            )}
+                            {file.sharedBy && (
+                              <span className="text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full font-medium shrink-0">
+                                From: {file.sharedBy?.name || file.sharedBy?.email}
+                              </span>
+                            )}
+                          </div>
+
                           <p className="text-xs text-slate-400 mt-0.5 flex flex-wrap items-center gap-2">
                             <span>{formatFileSize(file.fileSize)}</span>
                             <span>&bull;</span>
@@ -865,16 +1147,39 @@ function Dashboard({ onLogout }) {
                         </div>
                       </div>
 
-                      {/* Action Buttons: Preview, Download, Delete */}
+                      {/* Action Buttons */}
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        {/* Star Button */}
+                        <button
+                          onClick={(e) => toggleStar(file, e)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition text-sm"
+                          title={file.isStarred ? "Unstar file" : "Star file"}
+                        >
+                          {file.isStarred ? "⭐" : "☆"}
+                        </button>
+
+                        {/* Share Button */}
+                        <button
+                          onClick={() => {
+                            setShareItem(file);
+                            setShareItemType("file");
+                          }}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition flex items-center gap-1"
+                          title="Share file collaboratively"
+                        >
+                          <span>👥</span> Share
+                        </button>
+
+                        {/* Preview Button */}
                         <button
                           onClick={() => openFile(file)}
                           className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition flex items-center gap-1"
-                          title="Open / Preview in new tab"
+                          title="Open / Preview inline"
                         >
                           <span>👁️</span> Open
                         </button>
 
+                        {/* Download Button */}
                         <button
                           onClick={() => downloadFile(file)}
                           disabled={actionLoadingId === file._id}
@@ -889,14 +1194,17 @@ function Dashboard({ onLogout }) {
                           Download
                         </button>
 
-                        <button
-                          onClick={() => deleteFile(file)}
-                          disabled={actionLoadingId === file._id}
-                          className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-xs font-semibold text-red-600 hover:bg-red-100 transition flex items-center gap-1 disabled:opacity-50"
-                          title="Delete file permanently"
-                        >
-                          <span>🗑️</span> Delete
-                        </button>
+                        {/* Delete Button (only if owner) */}
+                        {!file.sharedBy && (
+                          <button
+                            onClick={() => deleteFile(file)}
+                            disabled={actionLoadingId === file._id}
+                            className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-xs font-semibold text-red-600 hover:bg-red-100 transition flex items-center gap-1 disabled:opacity-50"
+                            title="Delete file permanently"
+                          >
+                            <span>🗑️</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -906,6 +1214,17 @@ function Dashboard({ onLogout }) {
           </div>
         </section>
       </main>
+
+      {/* ================= COLLABORATIVE SHARE MODAL ================= */}
+      {shareItem && (
+        <ShareModal
+          item={shareItem}
+          itemType={shareItemType}
+          currentUser={user}
+          onClose={() => setShareItem(null)}
+          onShareUpdated={() => fetchData()}
+        />
+      )}
 
       {/* ================= NEW FOLDER MODAL ================= */}
       {showFolderModal && (
@@ -935,7 +1254,7 @@ function Dashboard({ onLogout }) {
               onKeyDown={(e) => {
                 if (e.key === "Enter") createFolder();
               }}
-              placeholder="e.g. Work Documents, Photos"
+              placeholder="e.g. Invoices, Project Files, Personal"
               autoFocus
               className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm"
             />

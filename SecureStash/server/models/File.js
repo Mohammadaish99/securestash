@@ -38,11 +38,21 @@ const fileSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "Folder",
             default: null
+        },
+
+        isStarred: {
+            type: Boolean,
+            default: false
         }
     },
     {
         timestamps: true
     }
 );
+
+// Indexes for fast querying
+fileSchema.index({ owner: 1, folder: 1 });
+fileSchema.index({ owner: 1, isStarred: 1 });
+fileSchema.index({ owner: 1, createdAt: -1 });
 
 module.exports = mongoose.model("File", fileSchema);
