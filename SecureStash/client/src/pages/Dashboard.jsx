@@ -322,6 +322,23 @@ function Dashboard({ onLogout }) {
   };
 
   // ===============================
+  // ARCHIVE / UNARCHIVE TOGGLE
+  // ===============================
+  const toggleArchive = async (file, e) => {
+    if (e) e.stopPropagation();
+    try {
+      const res = await API.patch(`/files/${file._id}/archive`);
+      setFiles((prev) =>
+        prev.map((f) => (f._id === file._id ? { ...f, isArchived: res.data.isArchived } : f))
+      );
+      setSuccess(res.data.isArchived ? `Archived "${file.originalName}"` : `Unarchived "${file.originalName}"`);
+    } catch (err) {
+      console.error("Archive toggle error:", err);
+      setError("Failed to update archive status.");
+    }
+  };
+
+  // ===============================
   // DOWNLOAD FILE
   // ===============================
   const downloadFile = async (file) => {
@@ -414,12 +431,15 @@ function Dashboard({ onLogout }) {
       );
     }
     if (cat === "archives") {
-      return (
-        mime.includes("zip") ||
-        mime.includes("rar") ||
-        mime.includes("tar") ||
-        /\.(zip|rar|tar|gz|7z)$/i.test(name)
-      );
+      const extMatch = /\.(zip|rar|tar|gz|7z|bz2|xz|iso|dmg|tgz|apk|jar)$/i.test(name) ||
+                       /\.(zip|rar|tar|gz|7z|bz2|xz|iso|dmg|tgz|apk|jar)$/i.test(file.name || "");
+      const mimeMatch = mime.includes("zip") ||
+                        mime.includes("compressed") ||
+                        mime.includes("archive") ||
+                        mime.includes("tar") ||
+                        mime.includes("7z") ||
+                        mime.includes("gzip");
+      return extMatch || mimeMatch;
     }
     return true;
   };
@@ -461,13 +481,17 @@ function Dashboard({ onLogout }) {
         sharePermission: share.permission
       })).filter((f) => f._id);
     } else if (activeMenu === "Starred") {
-      list = files.filter((f) => f.isStarred);
+      list = files.filter((f) => f.isStarred && !f.isArchived);
+    } else if (activeMenu === "Archived") {
+      list = files.filter((f) => f.isArchived);
     } else if (activeMenu === "Recent") {
-      list = [...files].sort(
+      list = [...files].filter((f) => !f.isArchived).sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       );
     } else if (currentFolder && activeMenu === "My Files") {
-      list = files.filter((f) => f.folder === currentFolder._id);
+      list = files.filter((f) => f.folder === currentFolder._id && !f.isArchived);
+    } else {
+      list = files.filter((f) => !f.isArchived && !f.folder);
     }
 
     return list
@@ -569,6 +593,27 @@ function Dashboard({ onLogout }) {
               {files.filter((f) => f.isStarred).length > 0 && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   {files.filter((f) => f.isStarred).length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveMenu("Archived");
+                setCurrentFolder(null);
+              }}
+              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center justify-between ${
+                activeMenu === "Archived"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-semibold"
+                  : "text-slate-300 hover:bg-slate-800/70"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span>🗄️</span> Archived
+              </div>
+              {files.filter((f) => f.isArchived).length > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                  {files.filter((f) => f.isArchived).length}
                 </span>
               )}
             </button>
@@ -1059,6 +1104,14 @@ function Dashboard({ onLogout }) {
                           >
                             👥
                           </button>
+                          {/* Archive Toggle */}
+                          <button
+                            onClick={(e) => toggleArchive(file, e)}
+                            className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 flex items-center justify-center transition text-xs"
+                            title={file.isArchived ? "Unarchive File" : "Archive File"}
+                          >
+                            {file.isArchived ? "📤" : "🗄️"}
+                          </button>
                         </div>
                       </div>
 
@@ -1168,6 +1221,15 @@ function Dashboard({ onLogout }) {
                           title="Share file collaboratively"
                         >
                           <span>👥</span> Share
+                        </button>
+
+                        {/* Archive Button */}
+                        <button
+                          onClick={(e) => toggleArchive(file, e)}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition flex items-center gap-1"
+                          title={file.isArchived ? "Unarchive file" : "Archive file"}
+                        >
+                          <span>{file.isArchived ? "📤" : "🗄️"}</span> {file.isArchived ? "Restore" : "Archive"}
                         </button>
 
                         {/* Preview Button */}

@@ -61,6 +61,15 @@ router.get("/public/download/:id", async (req, res) => {
         }
 
         const filePath = path.join(uploadsDir, file.name);
+
+        if (!fs.existsSync(filePath) && file.dataBase64) {
+            try {
+                fs.writeFileSync(filePath, Buffer.from(file.dataBase64, "base64"));
+            } catch (e) {
+                console.error("Failed to restore shared file from database:", e);
+            }
+        }
+
         if (!fs.existsSync(filePath)) {
             return res.status(404).json({
                 message: "File content not found on server disk."
@@ -91,6 +100,15 @@ router.get("/public/preview/:id", async (req, res) => {
         }
 
         const filePath = path.join(uploadsDir, file.name);
+
+        if (!fs.existsSync(filePath) && file.dataBase64) {
+            try {
+                fs.writeFileSync(filePath, Buffer.from(file.dataBase64, "base64"));
+            } catch (e) {
+                console.error("Failed to restore shared preview file from database:", e);
+            }
+        }
+
         if (!fs.existsSync(filePath)) {
             return res.status(404).json({
                 message: "File content not found on server disk."

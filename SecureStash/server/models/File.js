@@ -44,6 +44,16 @@ const fileSchema = new mongoose.Schema(
         isStarred: {
             type: Boolean,
             default: false
+        },
+
+        isArchived: {
+            type: Boolean,
+            default: false
+        },
+
+        dataBase64: {
+            type: String,
+            default: null
         }
     },
     {
@@ -54,6 +64,7 @@ const fileSchema = new mongoose.Schema(
 // Indexes for fast querying
 fileSchema.index({ owner: 1, folder: 1 });
 fileSchema.index({ owner: 1, isStarred: 1 });
+fileSchema.index({ owner: 1, isArchived: 1 });
 fileSchema.index({ owner: 1, createdAt: -1 });
 
 const MongooseFile = mongoose.model("File", fileSchema);

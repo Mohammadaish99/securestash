@@ -40,6 +40,12 @@ const upload = multer({
     },
 
     fileFilter: function (req, file, cb) {
+        const ext = path.extname(file.originalname).toLowerCase();
+        const archiveExts = [".zip", ".rar", ".tar", ".gz", ".tgz", ".7z", ".bz2", ".xz", ".iso", ".dmg", ".apk", ".jar"];
+        if (archiveExts.includes(ext)) {
+            return cb(null, true);
+        }
+
         const allowedTypes = [
             "image/jpeg",
             "image/png",
@@ -54,6 +60,12 @@ const upload = multer({
             "application/zip",
             "application/x-zip-compressed",
             "application/x-rar-compressed",
+            "application/x-7z-compressed",
+            "application/x-tar",
+            "application/gzip",
+            "application/x-bzip2",
+            "application/x-compressed",
+            "application/octet-stream",
             "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/vnd.ms-excel",
@@ -65,11 +77,10 @@ const upload = multer({
             "audio/mpeg",
             "audio/wav",
             "video/mp4",
-            "video/webm",
-            "application/octet-stream"
+            "video/webm"
         ];
 
-        if (allowedTypes.includes(file.mimetype) || file.mimetype.startsWith("image/") || file.mimetype.startsWith("text/")) {
+        if (allowedTypes.includes(file.mimetype) || file.mimetype.startsWith("image/") || file.mimetype.startsWith("text/") || file.mimetype.includes("archive") || file.mimetype.includes("compressed") || file.mimetype.includes("zip")) {
             cb(null, true);
         } else {
             cb(new Error("File type not supported: " + file.mimetype));
@@ -105,6 +116,15 @@ router.post("/upload", protect, upload.single("file"), async (req, res) => {
             targetFolder = validFolder._id;
         }
 
+        let dataBase64 = null;
+        try {
+            if (req.file.size <= 15 * 1024 * 1024) {
+                dataBase64 = fs.readFileSync(req.file.path).toString("base64");
+            }
+        } catch (e) {
+            console.warn("Base64 buffering notice:", e.message);
+        }
+
         const savedFile = await File.create({
             name: req.file.filename,
             originalName: req.file.originalname,
@@ -112,7 +132,8 @@ router.post("/upload", protect, upload.single("file"), async (req, res) => {
             fileType: req.file.mimetype,
             fileSize: req.file.size,
             owner: req.user,
-            folder: targetFolder
+            folder: targetFolder,
+            dataBase64
         });
 
         res.status(201).json({
@@ -209,6 +230,15 @@ router.post("/upload-url", protect, async (req, res) => {
             targetFolder = validFolder._id;
         }
 
+        let dataBase64 = null;
+        try {
+            if (buffer.length <= 15 * 1024 * 1024) {
+                dataBase64 = buffer.toString("base64");
+            }
+        } catch (e) {
+            console.warn("Base64 buffering notice:", e.message);
+        }
+
         const savedFile = await File.create({
             name: uniqueName,
             originalName: originalName,
@@ -216,7 +246,8 @@ router.post("/upload-url", protect, async (req, res) => {
             fileType: contentType.split(";")[0],
             fileSize: buffer.length,
             owner: req.user,
-            folder: targetFolder
+            folder: targetFolder,
+            dataBase64
         });
 
         res.status(201).json({
@@ -295,6 +326,14 @@ router.get("/download/:id", protect, async (req, res) => {
 
         const filePath = path.join(uploadsDir, file.name);
 
+        if (!fs.existsSync(filePath) && file.dataBase64) {
+            try {
+                fs.writeFileSync(filePath, Buffer.from(file.dataBase64, "base64"));
+            } catch (e) {
+                console.error("Failed to restore file from database:", e);
+            }
+        }
+
         if (!fs.existsSync(filePath)) {
             return res.status(404).json({
                 message: "File does not exist on storage disk"
@@ -355,6 +394,15 @@ router.get("/preview/:id", protect, async (req, res) => {
         }
 
         const filePath = path.join(uploadsDir, file.name);
+
+        if (!fs.existsSync(filePath) && file.dataBase64) {
+            try {
+                fs.writeFileSync(filePath, Buffer.from(file.dataBase64, "base64"));
+            } catch (e) {
+                console.error("Failed to restore file from database:", e);
+            }
+        }
+
         if (!fs.existsSync(filePath)) {
             return res.status(404).json({
                 message: "File missing on disk"
@@ -400,6 +448,38 @@ router.patch("/:id/star", protect, async (req, res) => {
         console.error("Star File Error:", error);
         res.status(500).json({
             message: "Server error"
+        });
+    }
+});
+
+// ===============================
+// ARCHIVE / UNARCHIVE FILE
+// ===============================
+router.patch("/:id/archive", protect, async (req, res) => {
+    try {
+        const file = await File.findOne({
+            _id: req.params.id,
+            owner: req.user
+        });
+
+        if (!file) {
+            return res.status(404).json({
+                message: "File not found or access denied"
+            });
+        }
+
+        file.isArchived = !file.isArchived;
+        await file.save();
+
+        res.status(200).json({
+            message: file.isArchived ? "File archived" : "File unarchived",
+            isArchived: file.isArchived,
+            file
+        });
+    } catch (error) {
+        console.error("Archive File Error:", error);
+        res.status(500).json({
+            message: "Server error toggling archive status"
         });
     }
 });
