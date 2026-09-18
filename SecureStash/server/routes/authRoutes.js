@@ -132,6 +132,17 @@ router.post("/register", registerLimiter, async (req, res) => {
             password: hashedPassword
         });
 
+        // Automatically link any pending file or folder shares for this email
+        try {
+            const Share = require("../models/Share");
+            await Share.updateMany(
+                { invitedEmail: cleanEmail },
+                { sharedWith: user._id, invitedEmail: null }
+            );
+        } catch (e) {
+            console.warn("Auto-linking pending shares notice:", e.message);
+        }
+
         const secret = process.env.JWT_SECRET || "SecureStash_Default_Secret_2026";
         const token = jwt.sign(
             { userId: user._id },

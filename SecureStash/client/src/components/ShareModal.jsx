@@ -13,6 +13,7 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
 
   const isFile = itemType === "file";
   const itemId = item._id;
+  const shareLink = `${window.location.origin}/#shared-${itemType}-${itemId}`;
 
   // Fetch current collaborators
   const fetchCollaborators = async () => {
@@ -92,20 +93,19 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
 
   // Copy share link
   const copyShareLink = () => {
-    const link = `${window.location.origin}/#shared-${itemType}-${itemId}`;
-    navigator.clipboard.writeText(link).then(() => {
+    navigator.clipboard.writeText(shareLink).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     });
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center px-4 z-50 animate-fade-in">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center px-4 z-50 animate-fade-in">
       <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 text-slate-100 relative">
         {/* Header */}
         <div className="flex items-start justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-xl">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30 flex items-center justify-center text-2xl">
               {isFile ? "📄" : "📁"}
             </div>
             <div>
@@ -116,14 +116,14 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
-                {isFile ? "Collaborate on file" : "Share entire folder contents"}
+                {isFile ? "Share file with anyone or invite collaborators" : "Share folder contents"}
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition text-lg"
+            className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition text-lg"
           >
             ✕
           </button>
@@ -141,29 +141,62 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
           </div>
         )}
 
+        {/* Public Share Link Card (Google Drive Style) */}
+        <div className="mt-5 p-4 rounded-2xl bg-slate-950/70 border border-slate-800">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">🌐</span>
+              <span className="text-xs font-bold text-white">Public Share Link</span>
+            </div>
+            <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+              Active
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
+            Anyone with this link can view and download this {isFile ? "file" : "folder"} directly without creating an account.
+          </p>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={shareLink}
+              className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 select-all outline-none font-mono"
+            />
+            <button
+              onClick={copyShareLink}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
+                copied
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/30"
+                  : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30"
+              }`}
+            >
+              <span>{copied ? "✓ Copied!" : "Copy Link"}</span>
+            </button>
+          </div>
+        </div>
+
         {/* Invite Form */}
-        <form onSubmit={handleShare} className="mt-4">
+        <form onSubmit={handleShare} className="mt-5">
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-            Add Collaborator by Email
+            Invite Workspace Collaborator
           </label>
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
-              <span className="absolute left-3.5 top-3 text-slate-500">📧</span>
+              <span className="absolute left-3.5 top-3 text-slate-500 text-xs">📧</span>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="colleague@example.com"
-                required
-                autoFocus
-                className="w-full rounded-xl bg-slate-950 border border-slate-800 pl-10 pr-3 py-2.5 text-white placeholder-slate-500 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className="w-full rounded-xl bg-slate-950 border border-slate-800 pl-9 pr-3 py-2.5 text-white placeholder-slate-500 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
             <select
               value={permission}
               onChange={(e) => setPermission(e.target.value)}
-              className="rounded-xl bg-slate-950 border border-slate-800 px-3 py-2.5 text-xs text-slate-300 outline-none focus:border-blue-500"
+              className="rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-slate-300 outline-none focus:border-blue-500"
             >
               <option value="download">Download & View</option>
               <option value="view">View Only</option>
@@ -172,46 +205,46 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
             <button
               type="submit"
               disabled={loading}
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0 shadow-lg shadow-blue-600/30"
+              className="rounded-xl bg-slate-800 hover:bg-slate-700 px-4 py-2 text-xs font-semibold text-white transition disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0"
             >
-              {loading ? "Sharing..." : "Send Invite"}
+              {loading ? "Inviting..." : "Invite"}
             </button>
           </div>
         </form>
 
         {/* People with access list */}
-        <div className="mt-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5">
+        <div className="mt-5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
             People With Access
           </p>
 
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
             {/* Owner Row */}
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-600/30 border border-blue-500/40 text-blue-300 font-bold text-xs flex items-center justify-center">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-full bg-blue-600/30 border border-blue-500/40 text-blue-300 font-bold text-xs flex items-center justify-center">
                   {currentUser?.name?.charAt(0)?.toUpperCase() || "Y"}
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-white">
-                    {currentUser?.name || "You"} <span className="text-[10px] text-slate-400 font-normal">(You)</span>
+                    {currentUser?.name || "You"} <span className="text-[10px] text-slate-400 font-normal">(Owner)</span>
                   </p>
-                  <p className="text-[11px] text-slate-400">{currentUser?.email}</p>
+                  <p className="text-[10px] text-slate-400">{currentUser?.email}</p>
                 </div>
               </div>
-              <span className="text-[11px] font-semibold text-slate-400 px-2.5 py-1 rounded-full bg-slate-800">
+              <span className="text-[10px] font-semibold text-slate-400 px-2 py-0.5 rounded-full bg-slate-800">
                 Owner
               </span>
             </div>
 
             {/* Collaborators List */}
             {fetchingCollabs ? (
-              <div className="text-center py-4 text-xs text-slate-500">
+              <div className="text-center py-3 text-xs text-slate-500">
                 Loading collaborators...
               </div>
             ) : collaborators.length === 0 ? (
-              <div className="text-center py-4 text-xs text-slate-500 italic">
-                Only you have access. Invite a collaborator above to share!
+              <div className="text-center py-2 text-xs text-slate-500 italic">
+                No individual collaborators yet. Share the public link above or invite an email!
               </div>
             ) : (
               collaborators.map((c) => (
@@ -219,28 +252,28 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
                   key={c._id}
                   className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0">
-                      {c.sharedWith?.name?.charAt(0)?.toUpperCase() || "U"}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 rounded-full bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0">
+                      {c.sharedWith?.name?.charAt(0)?.toUpperCase() || c.invitedEmail?.charAt(0)?.toUpperCase() || "U"}
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-white truncate">
-                        {c.sharedWith?.name || "User"}
+                        {c.sharedWith?.name || c.invitedEmail || "Invited User"}
                       </p>
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {c.sharedWith?.email}
+                      <p className="text-[10px] text-slate-400 truncate">
+                        {c.sharedWith?.email || c.invitedEmail}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] uppercase font-semibold text-slate-400 px-2 py-0.5 rounded bg-slate-800">
+                    <span className="text-[9px] uppercase font-semibold text-slate-400 px-2 py-0.5 rounded bg-slate-800">
                       {c.permission === "view" ? "Viewer" : "Editor"}
                     </span>
                     <button
-                      onClick={() => handleRevoke(c._id, c.sharedWith?.name || c.sharedWith?.email)}
-                      className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2 py-1 rounded-lg transition"
-                      title="Revoke collaborator access"
+                      onClick={() => handleRevoke(c._id, c.sharedWith?.name || c.invitedEmail || "User")}
+                      className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2 py-0.5 rounded-lg transition"
+                      title="Revoke access"
                     >
                       Revoke
                     </button>
@@ -251,19 +284,11 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
           </div>
         </div>
 
-        {/* Footer: Copy Link & Close */}
-        <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
-          <button
-            onClick={copyShareLink}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-blue-400 hover:text-blue-300 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 transition"
-          >
-            <span>🔗</span>
-            <span>{copied ? "✓ Link Copied to Clipboard!" : "Copy Share Link"}</span>
-          </button>
-
+        {/* Footer */}
+        <div className="mt-5 pt-3 border-t border-slate-800 flex justify-end">
           <button
             onClick={onClose}
-            className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 transition"
+            className="rounded-xl bg-slate-800 hover:bg-slate-700 px-5 py-2 text-xs font-medium text-slate-200 transition"
           >
             Done
           </button>

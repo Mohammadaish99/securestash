@@ -24,7 +24,14 @@ const shareSchema = new mongoose.Schema(
         sharedWith: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            required: true
+            default: null
+        },
+
+        invitedEmail: {
+            type: String,
+            lowercase: true,
+            trim: true,
+            default: null
         },
 
         permission: {
