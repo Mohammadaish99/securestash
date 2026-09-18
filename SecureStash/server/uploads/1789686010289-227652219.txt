@@ -1,0 +1,168 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+
+df = pd.read_excel("/content/telco x customer data.xlsx")
+
+print("Rows:", df.shape[0])
+print("Columns:", df.shape[1])
+df.head()
+
+
+
+
+
+df.info()
+
+
+print("Missing values:")
+print(df.isnull().sum())
+
+print("\nDuplicate rows:", df.duplicated().sum())
+
+
+print(df["churn"].value_counts())
+
+sns.countplot(data=df, x="churn")
+plt.title("Customer Churn Distribution")
+plt.xlabel("Churn")
+plt.ylabel("Number of Customers")
+plt.show()
+
+
+# Remove duplicate rows
+df = df.drop_duplicates().copy()
+
+# Clean gender values
+df["gender"] = df["gender"].str.strip().str.lower()
+
+# Make gender consistent
+df["gender"] = df["gender"].map({ "male": "Male", "female": "Female"})
+
+# Convert churn to numbers
+df["churn"] = df["churn"].map({"Active": 0, "Churned": 1})
+
+# Remove rows with missing churn/gender
+df = df.dropna(subset=["churn", "gender"])
+
+# Prepare X and y
+X = df.drop(columns=["customer_id", "connect_date", "end_date", "churn", "postalcode"])
+
+y = df["churn"]
+
+# Treat these as categorical variables
+categorical_columns = [ "gender", "region", "pay method", "tariff", "handset"]
+
+# Convert categorical data into numbers
+X = pd.get_dummies(X, columns=categorical_columns, drop_first=True)
+
+print("Number of features:", X.shape[1])
+print("Target distribution:")
+print(y.value_counts())
+
+X.head()
+
+
+
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.20,
+    random_state=42,
+    stratify=y
+)
+
+print("Training rows:", len(X_train))
+print("Testing rows:", len(X_test))
+
+
+
+model = RandomForestClassifier(
+    n_estimators=200,
+    random_state=42,
+    class_weight="balanced"
+)
+
+model.fit(X_train, y_train)
+
+
+y_pred = model.predict(X_test)
+
+print("First 20 predictions:")
+print(y_pred[:20])
+
+
+print("Accuracy:", round(accuracy_score(y_test, y_pred), 4))
+print()
+print(classification_report(
+    y_test,
+    y_pred,
+    target_names=["Active", "Churned"]
+))
+
+
+cm = confusion_matrix(y_test, y_pred)
+
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt="d",
+    xticklabels=["Active", "Churned"],
+    yticklabels=["Active", "Churned"]
+)
+
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+plt.show()
+
+
+importance = pd.Series(
+    model.feature_importances_,
+    index=X.columns
+).sort_values(ascending=False)
+
+print("Top 10 important features:")
+display(importance.head(10).to_frame("Importance"))
+
+
+churn_probability = model.predict_proba(X_test)[:, 1]
+
+risk = pd.DataFrame({
+    "Actual Churn": y_test.values,
+    "Churn Probability": churn_probability
+})
+
+risk["Risk Level"] = pd.cut(
+    risk["Churn Probability"],
+    bins=[0, 0.30, 0.70, 1.00],
+    labels=["Low", "Medium", "High"],
+    include_lowest=True
+)
+
+risk.head(10)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

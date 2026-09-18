@@ -1,0 +1,2 @@
+PORT=5000
+MONGODB_URI=mongodb+srv://aishm4864_db_user:42Lst61jedlRbsok@cluster0.hi7r9dj.mongodb.net/?appName=Cluster0

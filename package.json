@@ -1,0 +1,14 @@
+{
+  "name": "securestash-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx concurrently -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"npm run server\" \"npm run client\"",
+    "server": "npm --prefix SecureStash/server run dev",
+    "client": "npm --prefix SecureStash/client run dev",
+    "build": "npm --prefix SecureStash/client install && npm --prefix SecureStash/client run build && npm --prefix SecureStash/server install",
+    "start": "node SecureStash/server/server.js",
+    "install:all": "npm --prefix SecureStash/server install && npm --prefix SecureStash/client install",
+    "publish": "node publish.js"
+  }
+}
