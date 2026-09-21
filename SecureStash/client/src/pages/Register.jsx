@@ -9,6 +9,7 @@ function Register({ onLogin, onSuccess }) {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [verificationCode, setVerificationCode] = useState("");
+  const [fallbackCode, setFallbackCode] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -90,6 +91,12 @@ function Register({ onLogin, onSuccess }) {
       });
 
       setMessage(response.data.message || "Verification code sent to your Gmail inbox! Please enter the 6-digit code.");
+      if (response.data.code) {
+        setVerificationCode(response.data.code);
+        setFallbackCode(response.data.code);
+      } else {
+        setFallbackCode("");
+      }
       setStep("verify");
     } catch (err) {
       console.error("Registration initiation error:", err);
@@ -389,18 +396,34 @@ function Register({ onLogin, onSuccess }) {
           ) : (
             /* STEP 2: VERIFICATION OTP */
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-base">📬</span>
-                  <p className="font-semibold text-white">Check Your Gmail Inbox</p>
+              {fallbackCode ? (
+                <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-base">⚡</span>
+                    <p className="font-semibold text-emerald-200">Instant Verification Code (Cloud Demo)</p>
+                  </div>
+                  <p className="text-slate-300 text-[12px] leading-relaxed">
+                    Render free tier firewall blocks outbound SMTP email ports. Your verification code is:
+                  </p>
+                  <div className="mt-2.5 flex items-center justify-between bg-slate-950/80 p-2.5 rounded-xl border border-emerald-500/20">
+                    <span className="text-xl font-bold font-mono tracking-[0.25em] text-emerald-300 pl-1">{fallbackCode}</span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-lg font-semibold uppercase tracking-wider">✓ Auto-filled</span>
+                  </div>
                 </div>
-                <p className="text-slate-300 text-[12px] leading-relaxed">
-                  A 6-digit verification code has been dispatched to: <strong className="text-white font-mono">{email}</strong>
-                </p>
-                <p className="mt-2 text-[11px] text-blue-300/80">
-                  Tip: Check your <strong>Inbox</strong>, <strong>Updates</strong>, or <strong>Spam/Junk</strong> folder. Enter the code below to activate your account.
-                </p>
-              </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-base">📬</span>
+                    <p className="font-semibold text-white">Check Your Gmail Inbox</p>
+                  </div>
+                  <p className="text-slate-300 text-[12px] leading-relaxed">
+                    A 6-digit verification code has been dispatched to: <strong className="text-white font-mono">{email}</strong>
+                  </p>
+                  <p className="mt-2 text-[11px] text-blue-300/80">
+                    Tip: Check your <strong>Inbox</strong>, <strong>Updates</strong>, or <strong>Spam/Junk</strong> folder. Enter the code below to activate your account.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">

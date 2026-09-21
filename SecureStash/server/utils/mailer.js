@@ -116,6 +116,39 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
 </html>
 `;
 
+    // Fast-path: If RESEND_API_KEY is configured, send over HTTPS Port 443 (100% works on Render free tier!)
+    if (process.env.RESEND_API_KEY) {
+        try {
+            const res = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    from: process.env.RESEND_FROM || "SecureStash <onboarding@resend.dev>",
+                    to: [to],
+                    subject,
+                    html
+                })
+            });
+
+            if (res.ok) {
+                const resData = await res.json();
+                console.log(`✅ [RESEND HTTPS SENT] OTP email dispatched to ${to} (ID: ${resData.id})`);
+                return {
+                    sent: true,
+                    messageId: resData.id
+                };
+            } else {
+                const errData = await res.text();
+                console.warn("⚠️ Resend HTTPS API error:", errData);
+            }
+        } catch (resendErr) {
+            console.warn("⚠️ Resend request error:", resendErr.message);
+        }
+    }
+
     if (!transporter) {
         console.warn("\n==================================================");
         console.warn("⚠️  GMAIL SMTP NOT CONFIGURED IN server/.env");
@@ -126,8 +159,9 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
         console.warn("==================================================\n");
         return {
             sent: false,
+            code,
             reason: "GMAIL_NOT_CONFIGURED",
-            message: "Email credentials not configured in server/.env. Check console for code."
+            message: "Email credentials not configured in server/.env. Check console or on-screen code."
         };
     }
 
@@ -140,9 +174,9 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
             html
         });
 
-        // 6-second timeout safety guard so HTTP routes NEVER buffer or hang!
+        // 2-second timeout safety guard so HTTP routes NEVER buffer or hang on cloud hosts!
         const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("SMTP_CONNECTION_TIMEOUT")), 6000)
+            setTimeout(() => reject(new Error("SMTP_CONNECTION_TIMEOUT")), 2000)
         );
 
         const info = await Promise.race([sendPromise, timeoutPromise]);
@@ -153,10 +187,11 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
             messageId: info.messageId
         };
     } catch (error) {
-        console.error(`❌ [GMAIL ERROR] Failed to send email to ${to}:`, error.message);
+        console.error(`❌ [GMAIL ERROR / CLOUD BLOCKED] Failed to send email to ${to}:`, error.message);
         console.warn(`📧 [FALLBACK CODE] OTP for ${to}: ${code}`);
         return {
             sent: false,
+            code,
             reason: "SMTP_ERROR",
             error: error.message
         };

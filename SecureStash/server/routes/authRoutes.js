@@ -160,7 +160,8 @@ router.post("/send-register-otp", registerLimiter, async (req, res) => {
         res.status(200).json({
             message: emailResult.sent
                 ? `A 6-digit verification code has been sent to your Gmail inbox (${cleanEmail}). Please check your Inbox and Spam folder.`
-                : `Verification code generated for ${cleanEmail}. Please enter the 6-digit code to complete registration.`,
+                : `Verification code generated! (Cloud host blocked email delivery — code provided below)`,
+            code: emailResult.sent ? undefined : code,
             email: cleanEmail,
             verificationRequired: true,
             emailDelivered: emailResult.sent
@@ -469,7 +470,8 @@ router.post("/send-login-otp", loginLimiter, async (req, res) => {
         res.status(200).json({
             message: emailResult.sent
                 ? `A 6-digit login code has been sent to your Gmail inbox (${cleanEmail}). Please check your Inbox and Spam folder.`
-                : `One-time login code generated. Please check your email inbox to sign in.`,
+                : `One-time login code generated! (Cloud host blocked email delivery — code provided below)`,
+            code: emailResult.sent ? undefined : code,
             email: cleanEmail,
             emailDelivered: emailResult.sent
         });
@@ -605,7 +607,8 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
         res.status(200).json({
             message: emailResult.sent
                 ? "A 6-digit password recovery code has been sent to your Gmail inbox. It expires in 15 minutes."
-                : "A 6-digit verification code has been generated. Please check your email inbox to reset your password.",
+                : "A 6-digit recovery code has been generated! (Cloud host blocked email delivery — code provided below)",
+            code: emailResult.sent ? undefined : resetCode,
             emailDelivered: emailResult.sent
         });
 
