@@ -64,9 +64,30 @@ async function verifyGenuineEmail(email) {
         };
     }
 
-    // 3. DNS MX Record Verification
+    // Fast-path for trusted major providers (zero network latency)
+    const TRUSTED_DOMAINS = new Set([
+        "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.in", "outlook.com",
+        "hotmail.com", "live.com", "icloud.com", "me.com", "proton.me", "protonmail.com",
+        "zoho.com", "aol.com"
+    ]);
+
+    if (TRUSTED_DOMAINS.has(domain)) {
+        return {
+            isValid: true,
+            email: cleanEmail,
+            domain
+        };
+    }
+
+    // 3. DNS MX Record Verification (with fast 2.5s safety timeout)
     try {
-        const mxRecords = await dns.resolveMx(domain);
+        const mxPromise = dns.resolveMx(domain);
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("DNS_TIMEOUT")), 2500)
+        );
+
+        const mxRecords = await Promise.race([mxPromise, timeoutPromise]);
+
         if (!mxRecords || mxRecords.length === 0) {
             return {
                 isValid: false,
@@ -80,7 +101,6 @@ async function verifyGenuineEmail(email) {
             domain
         };
     } catch (dnsError) {
-        // Domain does not exist or has no DNS entries
         if (dnsError.code === "ENOTFOUND" || dnsError.code === "ENODATA" || dnsError.code === "SERVFAIL") {
             return {
                 isValid: false,
@@ -88,8 +108,8 @@ async function verifyGenuineEmail(email) {
             };
         }
 
-        // In case DNS query timed out, fallback to basic domain validation
-        console.warn(`DNS lookup warning for ${domain}:`, dnsError.message);
+        // DNS timed out or network error — allow gracefully without hanging
+        console.warn(`DNS lookup skipped for ${domain}:`, dnsError.message);
         return {
             isValid: true,
             email: cleanEmail,

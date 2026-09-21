@@ -13,11 +13,16 @@ function createTransporter() {
     }
 
     return nodemailer.createTransport({
-        service: "gmail",
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
         auth: {
             user: user.trim(),
             pass: pass.trim().replace(/\s+/g, "") // Remove spaces from 16-character app password if any
-        }
+        },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 7000
     });
 }
 
@@ -127,13 +132,20 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
     }
 
     try {
-        const info = await transporter.sendMail({
+        const sendPromise = transporter.sendMail({
             from: `"SecureStash Vault" <${process.env.EMAIL_USER}>`,
             to,
             subject,
             text: `Hello ${name},\n\nYour SecureStash verification code is: ${code}\n\nThis code will expire in 10 minutes.\nNever share this code with anyone.`,
             html
         });
+
+        // 6-second timeout safety guard so HTTP routes NEVER buffer or hang!
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("SMTP_CONNECTION_TIMEOUT")), 6000)
+        );
+
+        const info = await Promise.race([sendPromise, timeoutPromise]);
 
         console.log(`✅ [GMAIL SENT] OTP email dispatched to ${to} (MessageID: ${info.messageId})`);
         return {
