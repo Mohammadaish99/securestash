@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const { LocalFolder } = require("../config/localStore");
 
 const folderSchema = new mongoose.Schema(
     {
@@ -26,18 +25,6 @@ const folderSchema = new mongoose.Schema(
     }
 );
 
-const MongooseFolder = mongoose.model("Folder", folderSchema);
+folderSchema.index({ owner: 1, parentFolder: 1 });
 
-const FolderProxy = new Proxy(MongooseFolder, {
-    get(target, prop, receiver) {
-        if (mongoose.connection.readyState === 1) {
-            return Reflect.get(target, prop, receiver);
-        }
-        if (typeof LocalFolder[prop] === "function") {
-            return LocalFolder[prop].bind(LocalFolder);
-        }
-        return Reflect.get(target, prop, receiver);
-    }
-});
-
-module.exports = FolderProxy;
+module.exports = mongoose.model("Folder", folderSchema);

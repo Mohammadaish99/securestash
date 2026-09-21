@@ -61,15 +61,6 @@ router.get("/public/download/:id", async (req, res) => {
         }
 
         const filePath = path.join(uploadsDir, file.name);
-
-        if (!fs.existsSync(filePath) && file.dataBase64) {
-            try {
-                fs.writeFileSync(filePath, Buffer.from(file.dataBase64, "base64"));
-            } catch (e) {
-                console.error("Failed to restore shared file from database:", e);
-            }
-        }
-
         if (!fs.existsSync(filePath)) {
             return res.status(404).json({
                 message: "File content not found on server disk."
@@ -100,15 +91,6 @@ router.get("/public/preview/:id", async (req, res) => {
         }
 
         const filePath = path.join(uploadsDir, file.name);
-
-        if (!fs.existsSync(filePath) && file.dataBase64) {
-            try {
-                fs.writeFileSync(filePath, Buffer.from(file.dataBase64, "base64"));
-            } catch (e) {
-                console.error("Failed to restore shared preview file from database:", e);
-            }
-        }
-
         if (!fs.existsSync(filePath)) {
             return res.status(404).json({
                 message: "File content not found on server disk."
@@ -201,7 +183,7 @@ router.post("/file/:fileId", protect, async (req, res) => {
             });
         }
 
-        // Check if receiver is registered
+        // Check if receiver is registered in Atlas
         const receiver = await User.findOne({ email: cleanEmail });
 
         if (receiver && receiver._id.toString() === req.user.toString()) {
@@ -242,13 +224,13 @@ router.post("/file/:fileId", protect, async (req, res) => {
         res.status(201).json({
             message: receiver
                 ? `File shared with ${receiver.name || receiver.email} successfully!`
-                : `Invite recorded for ${cleanEmail}! They can open the share link or register to access it.`,
+                : `Invitation recorded for ${cleanEmail}! When they register, this file will appear in their stash.`,
             share
         });
     } catch (error) {
         console.error("Share File Error:", error);
         res.status(500).json({
-            message: "Server error sharing file."
+            message: error.message || "Server error sharing file."
         });
     }
 });
@@ -258,6 +240,15 @@ router.post("/file/:fileId", protect, async (req, res) => {
 // ===============================
 router.get("/files", protect, async (req, res) => {
     try {
+        const currentUser = await User.findById(req.user);
+        if (currentUser && currentUser.email) {
+            // Auto-link any shares pending for this user's email
+            await Share.updateMany(
+                { invitedEmail: currentUser.email.toLowerCase() },
+                { sharedWith: req.user, invitedEmail: null }
+            );
+        }
+
         // Fetch shares where sharedWith is req.user
         const shares = await Share.find({
             sharedWith: req.user,
@@ -266,14 +257,44 @@ router.get("/files", protect, async (req, res) => {
             .populate("file")
             .populate("owner", "name email");
 
+        // Filter out shares where the file may have been deleted
+        const validShares = shares.filter((s) => s.file !== null);
+
         res.status(200).json({
             message: "Shared files fetched successfully",
-            shares
+            shares: validShares
         });
     } catch (error) {
         console.error("Get Shared Files Error:", error);
         res.status(500).json({
             message: "Server error"
+        });
+    }
+});
+
+// ===============================
+// GET SENT SHARES (FILES & FOLDERS SHARED BY ME)
+// ===============================
+router.get("/sent", protect, async (req, res) => {
+    try {
+        const shares = await Share.find({
+            owner: req.user
+        })
+            .populate("file")
+            .populate("folder")
+            .populate("sharedWith", "name email")
+            .sort({ createdAt: -1 });
+
+        const validShares = shares.filter((s) => s.file !== null || s.folder !== null);
+
+        res.status(200).json({
+            message: "Sent shares fetched successfully",
+            shares: validShares
+        });
+    } catch (error) {
+        console.error("Get Sent Shares Error:", error);
+        res.status(500).json({
+            message: "Server error fetching sent shares."
         });
     }
 });
@@ -343,22 +364,30 @@ router.post("/folder/:folderId", protect, async (req, res) => {
         res.status(201).json({
             message: receiver
                 ? `Folder shared with ${receiver.name || receiver.email} successfully!`
-                : `Invite recorded for ${cleanEmail}! They can open the share link or register to access it.`,
+                : `Invitation recorded for ${cleanEmail}! When they register, this folder will appear in their stash.`,
             share
         });
     } catch (error) {
         console.error("Share Folder Error:", error);
         res.status(500).json({
-            message: "Server error sharing folder."
+            message: error.message || "Server error sharing folder."
         });
     }
 });
 
 // ===============================
-// GET SHARED FOLDERS
+// GET SHARED FOLDERS (WORKSPACES SHARED WITH ME)
 // ===============================
 router.get("/folders", protect, async (req, res) => {
     try {
+        const currentUser = await User.findById(req.user);
+        if (currentUser && currentUser.email) {
+            await Share.updateMany(
+                { invitedEmail: currentUser.email.toLowerCase() },
+                { sharedWith: req.user, invitedEmail: null }
+            );
+        }
+
         const shares = await Share.find({
             sharedWith: req.user,
             folder: { $ne: null }
@@ -366,14 +395,51 @@ router.get("/folders", protect, async (req, res) => {
             .populate("folder")
             .populate("owner", "name email");
 
+        const validShares = shares.filter((s) => s.folder !== null);
+
         res.status(200).json({
             message: "Shared folders fetched successfully",
-            shares
+            shares: validShares
         });
     } catch (error) {
         console.error("Get Shared Folders Error:", error);
         res.status(500).json({
             message: "Server error"
+        });
+    }
+});
+
+// ===============================
+// GET FILES INSIDE A SHARED FOLDER
+// ===============================
+router.get("/folder/:folderId/files", protect, async (req, res) => {
+    try {
+        const { folderId } = req.params;
+
+        // Check if user is folder owner OR has share access
+        const isOwner = await Folder.findOne({ _id: folderId, owner: req.user });
+        const hasShare = await Share.findOne({
+            folder: folderId,
+            sharedWith: req.user
+        });
+
+        if (!isOwner && !hasShare) {
+            return res.status(403).json({
+                message: "Access denied: You do not have permission to view this shared workspace."
+            });
+        }
+
+        const files = await File.find({ folder: folderId }).sort({ createdAt: -1 });
+
+        res.status(200).json({
+            message: "Shared folder files fetched successfully",
+            files,
+            permission: hasShare ? hasShare.permission : "download"
+        });
+    } catch (error) {
+        console.error("Get Shared Folder Files Error:", error);
+        res.status(500).json({
+            message: "Server error fetching files."
         });
     }
 });

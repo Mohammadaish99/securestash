@@ -5,6 +5,7 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import SharedViewer from "./pages/SharedViewer";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function parseSharedTarget() {
   if (typeof window === "undefined") return null;
@@ -76,51 +77,55 @@ function App() {
     }
   };
 
-  // If a shared link is opened, display the SharedViewer immediately
-  if (sharedTarget) {
-    return (
-      <SharedViewer
-        target={sharedTarget}
-        onGoToApp={handleLeaveShared}
-      />
-    );
-  }
+  const renderContent = () => {
+    // If a shared link is opened, display the SharedViewer immediately
+    if (sharedTarget) {
+      return (
+        <SharedViewer
+          target={sharedTarget}
+          onGoToApp={handleLeaveShared}
+        />
+      );
+    }
 
-  if (page === "forgot-password") {
-    return (
-      <ForgotPassword
-        onBackToLogin={(email) => {
-          if (email) setAuthEmail(email);
-          setPage("login");
-        }}
-      />
-    );
-  }
+    if (page === "forgot-password") {
+      return (
+        <ForgotPassword
+          onBackToLogin={(email) => {
+            if (email) setAuthEmail(email);
+            setPage("login");
+          }}
+        />
+      );
+    }
 
-  if (page === "register") {
+    if (page === "register") {
+      return (
+        <Register
+          onLogin={(email) => {
+            if (email) setAuthEmail(email);
+            setPage("login");
+          }}
+          onSuccess={handleLoginSuccess}
+        />
+      );
+    }
+
+    if (page === "dashboard") {
+      return <Dashboard onLogout={handleLogout} />;
+    }
+
     return (
-      <Register
-        onLogin={(email) => {
-          if (email) setAuthEmail(email);
-          setPage("login");
-        }}
+      <Login
+        initialEmail={authEmail}
+        onRegister={() => setPage("register")}
+        onForgotPassword={() => setPage("forgot-password")}
         onSuccess={handleLoginSuccess}
       />
     );
-  }
+  };
 
-  if (page === "dashboard") {
-    return <Dashboard onLogout={handleLogout} />;
-  }
-
-  return (
-    <Login
-      initialEmail={authEmail}
-      onRegister={() => setPage("register")}
-      onForgotPassword={() => setPage("forgot-password")}
-      onSuccess={handleLoginSuccess}
-    />
-  );
+  return <ErrorBoundary>{renderContent()}</ErrorBoundary>;
 }
 
 export default App;

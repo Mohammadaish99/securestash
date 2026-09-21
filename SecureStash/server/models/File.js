@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const { LocalFile } = require("../config/localStore");
 
 const fileSchema = new mongoose.Schema(
     {
@@ -44,16 +43,6 @@ const fileSchema = new mongoose.Schema(
         isStarred: {
             type: Boolean,
             default: false
-        },
-
-        isArchived: {
-            type: Boolean,
-            default: false
-        },
-
-        dataBase64: {
-            type: String,
-            default: null
         }
     },
     {
@@ -64,21 +53,6 @@ const fileSchema = new mongoose.Schema(
 // Indexes for fast querying
 fileSchema.index({ owner: 1, folder: 1 });
 fileSchema.index({ owner: 1, isStarred: 1 });
-fileSchema.index({ owner: 1, isArchived: 1 });
 fileSchema.index({ owner: 1, createdAt: -1 });
 
-const MongooseFile = mongoose.model("File", fileSchema);
-
-const FileProxy = new Proxy(MongooseFile, {
-    get(target, prop, receiver) {
-        if (mongoose.connection.readyState === 1) {
-            return Reflect.get(target, prop, receiver);
-        }
-        if (typeof LocalFile[prop] === "function") {
-            return LocalFile[prop].bind(LocalFile);
-        }
-        return Reflect.get(target, prop, receiver);
-    }
-});
-
-module.exports = FileProxy;
+module.exports = mongoose.model("File", fileSchema);

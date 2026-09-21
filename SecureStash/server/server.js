@@ -16,7 +16,7 @@ const shareRoutes = require("./routes/shareRoutes");
 
 const app = express();
 
-// Trust proxy for tunnels (localhost.run, pinggy, cloudflare) and mobile carriers
+// Trust proxy for reverse tunnels (localhost.run, pinggy, cloudflare) and mobile carriers
 app.set("trust proxy", true);
 
 // ===============================
@@ -50,9 +50,6 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Connect to Database
-connectDB();
-
 // ===============================
 // STATIC FILES & UPLOADS
 // ===============================
@@ -61,6 +58,25 @@ app.use("/uploads", express.static(uploadsDir));
 // ===============================
 // API ROUTES
 // ===============================
+const mongoose = require("mongoose");
+
+// Request Logger
+app.use("/api", (req, res, next) => {
+    console.log(`[API] ${req.method} ${req.originalUrl}`);
+    next();
+});
+
+// Database readiness guard for API routes (excluding health check)
+app.use("/api", (req, res, next) => {
+    if (req.path === "/health") return next();
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({
+            message: "Database connecting to MongoDB Atlas... Please verify that cloud.mongodb.com has 0.0.0.0/0 enabled in Network Access."
+        });
+    }
+    next();
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/folders", folderRoutes);
@@ -69,9 +85,11 @@ app.use("/api/shares", shareRoutes);
 
 // Health check route
 app.get("/api/health", (req, res) => {
+    const isDbConnected = mongoose.connection.readyState === 1;
     res.json({
-        status: "ok",
-        message: "SecureStash Backend is Running Healthy!",
+        status: isDbConnected ? "ok" : "db_connecting",
+        database: isDbConnected ? "MongoDB Atlas Connected" : "Connecting to MongoDB Atlas...",
+        message: "SecureStash Backend is Running!",
         timestamp: new Date().toISOString()
     });
 });
@@ -88,7 +106,7 @@ if (fs.existsSync(clientDistPath)) {
 } else {
     app.get("/", (req, res) => {
         res.json({
-            message: "SecureStash Backend is Running!"
+            message: "SecureStash Backend is Running with MongoDB Atlas!"
         });
     });
 }
@@ -106,6 +124,14 @@ app.use((err, req, res, next) => {
 // ===============================
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-    console.log(`SecureStash server running on port ${PORT}`);
-});
+async function startServer() {
+    connectDB().catch((err) => {
+        console.warn("⚠️ Initial Atlas connection pending. Server is running and will auto-reconnect once IP is whitelisted on Atlas.");
+    });
+
+    app.listen(PORT, () => {
+        console.log(`🚀 SecureStash server running on port ${PORT}`);
+    });
+}
+
+startServer();

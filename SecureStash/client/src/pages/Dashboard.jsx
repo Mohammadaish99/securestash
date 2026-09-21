@@ -8,6 +8,9 @@ function Dashboard({ onLogout }) {
   const [files, setFiles] = useState([]);
   const [sharedFiles, setSharedFiles] = useState([]);
   const [sharedFolders, setSharedFolders] = useState([]);
+  const [sentShares, setSentShares] = useState([]);
+  const [sharedFolderView, setSharedFolderView] = useState(null);
+  const [loadingSharedFolder, setLoadingSharedFolder] = useState(false);
   const [currentFolder, setCurrentFolder] = useState(null); // null means root
   const [uploadTargetFolderId, setUploadTargetFolderId] = useState("");
 
@@ -59,12 +62,14 @@ function Dashboard({ onLogout }) {
 
       // Fetch shared resources
       try {
-        const [sharedFileRes, sharedFolderRes] = await Promise.all([
+        const [sharedFileRes, sharedFolderRes, sentRes] = await Promise.all([
           API.get("/shares/files"),
-          API.get("/shares/folders")
+          API.get("/shares/folders"),
+          API.get("/shares/sent")
         ]);
         setSharedFiles(sharedFileRes.data.shares || []);
         setSharedFolders(sharedFolderRes.data.shares || []);
+        setSentShares(sentRes.data.shares || []);
       } catch (e) {
         console.warn("Shared data fetch warning:", e.message);
       }
@@ -96,13 +101,15 @@ function Dashboard({ onLogout }) {
         }
 
         try {
-          const [sharedFileRes, sharedFolderRes] = await Promise.all([
+          const [sharedFileRes, sharedFolderRes, sentRes] = await Promise.all([
             API.get("/shares/files"),
-            API.get("/shares/folders")
+            API.get("/shares/folders"),
+            API.get("/shares/sent")
           ]);
           if (!ignore) {
             setSharedFiles(sharedFileRes.data.shares || []);
             setSharedFolders(sharedFolderRes.data.shares || []);
+            setSentShares(sentRes.data.shares || []);
           }
         } catch (e) {
           console.warn("Shared data fetch warning:", e.message);
@@ -322,23 +329,6 @@ function Dashboard({ onLogout }) {
   };
 
   // ===============================
-  // ARCHIVE / UNARCHIVE TOGGLE
-  // ===============================
-  const toggleArchive = async (file, e) => {
-    if (e) e.stopPropagation();
-    try {
-      const res = await API.patch(`/files/${file._id}/archive`);
-      setFiles((prev) =>
-        prev.map((f) => (f._id === file._id ? { ...f, isArchived: res.data.isArchived } : f))
-      );
-      setSuccess(res.data.isArchived ? `Archived "${file.originalName}"` : `Unarchived "${file.originalName}"`);
-    } catch (err) {
-      console.error("Archive toggle error:", err);
-      setError("Failed to update archive status.");
-    }
-  };
-
-  // ===============================
   // DOWNLOAD FILE
   // ===============================
   const downloadFile = async (file) => {
@@ -360,10 +350,36 @@ function Dashboard({ onLogout }) {
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error("Download Error:", err);
+      if (err.response?.status === 403) {
+        setError(err.response?.data?.message || "Download restricted: This file has been shared with View-Only permissions.");
+        return;
+      }
       const fallbackUrl = `${API_BASE_URL}/files/download/${file._id}?token=${token}`;
       window.open(fallbackUrl, "_blank");
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  // ===============================
+  // OPEN SHARED WORKSPACE FOLDER
+  // ===============================
+  const openSharedFolder = async (folder, share) => {
+    try {
+      setLoadingSharedFolder(true);
+      setError("");
+      const res = await API.get(`/shares/folder/${folder._id}/files`);
+      setSharedFolderView({
+        folder,
+        share,
+        files: res.data.files || [],
+        permission: res.data.permission || share?.permission || "download"
+      });
+    } catch (err) {
+      console.error("Open shared folder error:", err);
+      setError(err.response?.data?.message || "Failed to load shared workspace files.");
+    } finally {
+      setLoadingSharedFolder(false);
     }
   };
 
@@ -431,15 +447,12 @@ function Dashboard({ onLogout }) {
       );
     }
     if (cat === "archives") {
-      const extMatch = /\.(zip|rar|tar|gz|7z|bz2|xz|iso|dmg|tgz|apk|jar)$/i.test(name) ||
-                       /\.(zip|rar|tar|gz|7z|bz2|xz|iso|dmg|tgz|apk|jar)$/i.test(file.name || "");
-      const mimeMatch = mime.includes("zip") ||
-                        mime.includes("compressed") ||
-                        mime.includes("archive") ||
-                        mime.includes("tar") ||
-                        mime.includes("7z") ||
-                        mime.includes("gzip");
-      return extMatch || mimeMatch;
+      return (
+        mime.includes("zip") ||
+        mime.includes("rar") ||
+        mime.includes("tar") ||
+        /\.(zip|rar|tar|gz|7z)$/i.test(name)
+      );
     }
     return true;
   };
@@ -475,23 +488,38 @@ function Dashboard({ onLogout }) {
     let list = files;
 
     if (activeMenu === "Shared With Me") {
-      list = sharedFiles.map((share) => ({
-        ...(share.file || {}),
-        sharedBy: share.owner,
-        sharePermission: share.permission
-      })).filter((f) => f._id);
+      if (sharedFolderView) {
+        list = (sharedFolderView.files || []).map((file) => ({
+          ...file,
+          sharedBy: sharedFolderView.share?.owner,
+          sharePermission: sharedFolderView.permission
+        }));
+      } else {
+        list = sharedFiles.map((share) => ({
+          ...(share.file || {}),
+          sharedBy: share.owner,
+          sharePermission: share.permission
+        })).filter((f) => f._id);
+      }
+    } else if (activeMenu === "Sent Files") {
+      list = sentShares
+        .filter((s) => s.file)
+        .map((share) => ({
+          ...(share.file || {}),
+          sentTo: share.sharedWith ? (share.sharedWith.name || share.sharedWith.email) : (share.invitedEmail || "Pending User"),
+          sharePermission: share.permission,
+          shareId: share._id,
+          isSentShare: true
+        }))
+        .filter((f) => f._id);
     } else if (activeMenu === "Starred") {
-      list = files.filter((f) => f.isStarred && !f.isArchived);
-    } else if (activeMenu === "Archived") {
-      list = files.filter((f) => f.isArchived);
+      list = files.filter((f) => f.isStarred);
     } else if (activeMenu === "Recent") {
-      list = [...files].filter((f) => !f.isArchived).sort(
+      list = [...files].sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       );
     } else if (currentFolder && activeMenu === "My Files") {
-      list = files.filter((f) => f.folder === currentFolder._id && !f.isArchived);
-    } else {
-      list = files.filter((f) => !f.isArchived && !f.folder);
+      list = files.filter((f) => f.folder === currentFolder._id);
     }
 
     return list
@@ -531,6 +559,7 @@ function Dashboard({ onLogout }) {
               onClick={() => {
                 setActiveMenu("My Files");
                 setCurrentFolder(null);
+                setSharedFolderView(null);
               }}
               className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center gap-3 ${
                 activeMenu === "My Files"
@@ -545,6 +574,7 @@ function Dashboard({ onLogout }) {
               onClick={() => {
                 setActiveMenu("Shared With Me");
                 setCurrentFolder(null);
+                setSharedFolderView(null);
               }}
               className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center justify-between ${
                 activeMenu === "Shared With Me"
@@ -564,8 +594,31 @@ function Dashboard({ onLogout }) {
 
             <button
               onClick={() => {
+                setActiveMenu("Sent Files");
+                setCurrentFolder(null);
+                setSharedFolderView(null);
+              }}
+              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center justify-between ${
+                activeMenu === "Sent Files"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-semibold"
+                  : "text-slate-300 hover:bg-slate-800/70"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span>📤</span> Sent Files
+              </div>
+              {sentShares.length > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  {sentShares.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
                 setActiveMenu("Recent");
                 setCurrentFolder(null);
+                setSharedFolderView(null);
               }}
               className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center gap-3 ${
                 activeMenu === "Recent"
@@ -580,6 +633,7 @@ function Dashboard({ onLogout }) {
               onClick={() => {
                 setActiveMenu("Starred");
                 setCurrentFolder(null);
+                setSharedFolderView(null);
               }}
               className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center justify-between ${
                 activeMenu === "Starred"
@@ -593,27 +647,6 @@ function Dashboard({ onLogout }) {
               {files.filter((f) => f.isStarred).length > 0 && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   {files.filter((f) => f.isStarred).length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveMenu("Archived");
-                setCurrentFolder(null);
-              }}
-              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition flex items-center justify-between ${
-                activeMenu === "Archived"
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-semibold"
-                  : "text-slate-300 hover:bg-slate-800/70"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span>🗄️</span> Archived
-              </div>
-              {files.filter((f) => f.isArchived).length > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                  {files.filter((f) => f.isArchived).length}
                 </span>
               )}
             </button>
@@ -741,23 +774,177 @@ function Dashboard({ onLogout }) {
                 </span>
               </>
             )}
-            {activeMenu !== "My Files" && (
+            {activeMenu === "Shared With Me" ? (
               <>
                 <span>/</span>
-                <span className="font-semibold text-slate-800">{activeMenu}</span>
+                <button
+                  onClick={() => setSharedFolderView(null)}
+                  className={`font-semibold hover:underline ${sharedFolderView ? "text-blue-600" : "text-slate-800"}`}
+                >
+                  🤝 Shared With Me
+                </button>
+                {sharedFolderView && (
+                  <>
+                    <span>/</span>
+                    <span className="font-semibold text-slate-800 flex items-center gap-1">
+                      <span>📂</span> {sharedFolderView.folder.name}
+                    </span>
+                  </>
+                )}
               </>
+            ) : (
+              activeMenu !== "My Files" && (
+                <>
+                  <span>/</span>
+                  <span className="font-semibold text-slate-800">{activeMenu}</span>
+                </>
+              )
             )}
           </div>
+
+          {/* Top Quick Navigation Tabs (Visible on both Mobile and Desktop) */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4">
+            <button
+              onClick={() => {
+                setActiveMenu("My Files");
+                setCurrentFolder(null);
+                setSharedFolderView(null);
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition shrink-0 flex items-center gap-2 ${
+                activeMenu === "My Files"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                  : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+              }`}
+            >
+              <span>📁</span> My Files
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${
+                activeMenu === "My Files" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+              }`}>
+                {files.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveMenu("Shared With Me");
+                setCurrentFolder(null);
+                setSharedFolderView(null);
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition shrink-0 flex items-center gap-2 ${
+                activeMenu === "Shared With Me"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                  : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+              }`}
+            >
+              <span>🤝</span> Shared With Me
+              {(sharedFiles.length + sharedFolders.length) > 0 && (
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${
+                  activeMenu === "Shared With Me" ? "bg-white text-blue-600" : "bg-blue-600 text-white"
+                }`}>
+                  {sharedFiles.length + sharedFolders.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveMenu("Sent Files");
+                setCurrentFolder(null);
+                setSharedFolderView(null);
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition shrink-0 flex items-center gap-2 ${
+                activeMenu === "Sent Files"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                  : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+              }`}
+            >
+              <span>📤</span> Sent Files
+              {sentShares.length > 0 && (
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${
+                  activeMenu === "Sent Files" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                }`}>
+                  {sentShares.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveMenu("Starred");
+                setCurrentFolder(null);
+                setSharedFolderView(null);
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition shrink-0 flex items-center gap-2 ${
+                activeMenu === "Starred"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                  : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+              }`}
+            >
+              <span>⭐</span> Starred
+              {files.filter((f) => f.isStarred).length > 0 && (
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${
+                  activeMenu === "Starred" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"
+                }`}>
+                  {files.filter((f) => f.isStarred).length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Shared Files Notification Banner */}
+          {(sharedFiles.length + sharedFolders.length) > 0 && activeMenu !== "Shared With Me" && (
+            <div className="mb-6 rounded-2xl border border-indigo-200 bg-indigo-50/90 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-indigo-900 shadow-sm animate-fade-in">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl shrink-0">📬</span>
+                <div>
+                  <p className="font-bold text-sm">
+                    You have {sharedFiles.length + sharedFolders.length} shared {sharedFiles.length + sharedFolders.length === 1 ? "item" : "items"} from other users!
+                  </p>
+                  <p className="text-xs text-indigo-700 mt-0.5">
+                    Another user has shared files with your account. Switch to Shared With Me to view or download them.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveMenu("Shared With Me");
+                  setCurrentFolder(null);
+                  setSharedFolderView(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition shrink-0 shadow-sm self-start sm:self-auto"
+              >
+                View Shared Files &rarr;
+              </button>
+            </div>
+          )}
 
           {/* Heading & Action Buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <span>{currentFolder ? `📂 ${currentFolder.name}` : activeMenu === "Starred" ? "⭐ Starred Items" : activeMenu === "Shared With Me" ? "🤝 Shared With Me" : activeMenu === "Recent" ? "🕘 Recent Files" : "📁 My Files"}</span>
+                <span>
+                  {sharedFolderView
+                    ? `📂 ${sharedFolderView.folder.name}`
+                    : currentFolder
+                    ? `📂 ${currentFolder.name}`
+                    : activeMenu === "Starred"
+                    ? "⭐ Starred Items"
+                    : activeMenu === "Shared With Me"
+                    ? "🤝 Shared With Me"
+                    : activeMenu === "Sent Files"
+                    ? "📤 Sent Files (Shared by Me)"
+                    : activeMenu === "Recent"
+                    ? "🕘 Recent Files"
+                    : "📁 My Files"}
+                </span>
               </h2>
               <p className="text-slate-500 text-sm mt-1">
-                {activeMenu === "Shared With Me"
+                {sharedFolderView
+                  ? `Workspace shared by ${sharedFolderView.share?.owner?.name || sharedFolderView.share?.owner?.email || "collaborator"}`
+                  : activeMenu === "Shared With Me"
                   ? "Collaborative files and folders shared with your account."
+                  : activeMenu === "Sent Files"
+                  ? "Files and folders you have shared with other users or invited by email."
                   : activeMenu === "Starred"
                   ? "Quick-access favorite files you have starred."
                   : "Private, encrypted digital vault inspired by DigiLocker and Google Drive."}
@@ -919,11 +1106,11 @@ function Dashboard({ onLogout }) {
           </div>
 
           {/* ================= SHARED FOLDERS (In Shared With Me view) ================= */}
-          {activeMenu === "Shared With Me" && sharedFolders.length > 0 && (
+          {activeMenu === "Shared With Me" && !sharedFolderView && sharedFolders.length > 0 && (
             <div className="mt-8">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
                 <span>📁 Shared Workspaces</span>
-                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">
                   {sharedFolders.length}
                 </span>
               </h3>
@@ -935,10 +1122,7 @@ function Dashboard({ onLogout }) {
                   return (
                     <div
                       key={share._id}
-                      onClick={() => {
-                        setCurrentFolder(folder);
-                        setActiveMenu("My Files");
-                      }}
+                      onClick={() => openSharedFolder(folder, share)}
                       className="bg-white rounded-2xl border border-indigo-200 p-4 hover:border-indigo-400 hover:shadow-md transition cursor-pointer group relative"
                     >
                       <div className="flex items-center justify-between">
@@ -956,6 +1140,41 @@ function Dashboard({ onLogout }) {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Banner when viewing inside a shared folder */}
+          {activeMenu === "Shared With Me" && sharedFolderView && (
+            <div className="mt-8 bg-indigo-50 border border-indigo-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-2xl shrink-0 shadow-md shadow-indigo-500/20">
+                  📂
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 text-lg">{sharedFolderView.folder.name}</h3>
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white text-indigo-700 border border-indigo-200 shadow-sm">
+                      {sharedFolderView.permission === "view" ? "👁️ View Only" : "📥 Can Download"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Workspace shared by <span className="font-semibold text-slate-700">{sharedFolderView.share?.owner?.name || sharedFolderView.share?.owner?.email || "collaborator"}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSharedFolderView(null)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-indigo-200 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-sm self-start sm:self-auto"
+              >
+                <span>←</span> Back to All Shared
+              </button>
+            </div>
+          )}
+
+          {loadingSharedFolder && (
+            <div className="mt-8 bg-white rounded-2xl border border-indigo-100 p-8 text-center animate-pulse">
+              <span className="text-2xl">⏳</span>
+              <p className="text-indigo-600 font-medium text-sm mt-2">Loading shared workspace files...</p>
             </div>
           )}
 
@@ -1038,7 +1257,15 @@ function Dashboard({ onLogout }) {
           <div className="mt-8 mb-12">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                {currentFolder ? `Files in "${currentFolder.name}"` : "Files"}
+                {sharedFolderView
+                  ? `Files in "${sharedFolderView.folder.name}"`
+                  : currentFolder
+                  ? `Files in "${currentFolder.name}"`
+                  : activeMenu === "Shared With Me"
+                  ? "Shared Files (Received)"
+                  : activeMenu === "Sent Files"
+                  ? "Sent Files (Shared by You)"
+                  : "Files"}
               </h3>
               <span className="text-xs text-slate-500 font-medium">
                 {displayedFiles.length} {displayedFiles.length === 1 ? "file" : "files"}
@@ -1056,22 +1283,28 @@ function Dashboard({ onLogout }) {
                 <p className="text-slate-500 text-sm mt-1">
                   {searchQuery
                     ? `No files match "${searchQuery}".`
+                    : activeMenu === "Shared With Me"
+                    ? "No files have been shared with your account yet."
+                    : activeMenu === "Sent Files"
+                    ? "You haven't sent or shared any files yet. Click 'Send' on any of your files to share!"
                     : "Upload your first file or stash one from a URL."}
                 </p>
-                <div className="flex justify-center gap-3 mt-4">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition shadow"
-                  >
-                    ⬆ Upload from Device
-                  </button>
-                  <button
-                    onClick={() => setShowUrlModal(true)}
-                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
-                  >
-                    🌐 From URL
-                  </button>
-                </div>
+                {activeMenu !== "Shared With Me" && activeMenu !== "Sent Files" && (
+                  <div className="flex justify-center gap-3 mt-4">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition shadow"
+                    >
+                      ⬆ Upload from Device
+                    </button>
+                    <button
+                      onClick={() => setShowUrlModal(true)}
+                      className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      🌐 From URL
+                    </button>
+                  </div>
+                )}
               </div>
             ) : viewMode === "grid" ? (
               /* GRID VIEW */
@@ -1093,25 +1326,19 @@ function Dashboard({ onLogout }) {
                           >
                             {file.isStarred ? "⭐" : "☆"}
                           </button>
-                          {/* Share File */}
-                          <button
-                            onClick={() => {
-                              setShareItem(file);
-                              setShareItemType("file");
-                            }}
-                            className="w-7 h-7 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition text-xs"
-                            title="Share File"
-                          >
-                            👥
-                          </button>
-                          {/* Archive Toggle */}
-                          <button
-                            onClick={(e) => toggleArchive(file, e)}
-                            className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 flex items-center justify-center transition text-xs"
-                            title={file.isArchived ? "Unarchive File" : "Archive File"}
-                          >
-                            {file.isArchived ? "📤" : "🗄️"}
-                          </button>
+                          {/* Share File (Only if owner) */}
+                          {!file.sharedBy && (
+                            <button
+                              onClick={() => {
+                                setShareItem(file);
+                                setShareItemType("file");
+                              }}
+                              className="w-7 h-7 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition text-xs"
+                              title="Share File"
+                            >
+                              👥
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -1125,6 +1352,16 @@ function Dashboard({ onLogout }) {
                       <p className="text-xs text-slate-400 mt-1">
                         {formatFileSize(file.fileSize)} &bull; {file.createdAt ? new Date(file.createdAt).toLocaleDateString() : ""}
                       </p>
+                      {file.sharedBy && (
+                        <span className="inline-block text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full font-medium mt-2">
+                          From: {file.sharedBy?.name || file.sharedBy?.email}
+                        </span>
+                      )}
+                      {file.sentTo && (
+                        <span className="inline-block text-[10px] bg-sky-50 border border-sky-200 text-sky-700 px-2 py-0.5 rounded-full font-medium mt-2">
+                          📤 Sent to: {file.sentTo}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
@@ -1134,20 +1371,44 @@ function Dashboard({ onLogout }) {
                       >
                         Open
                       </button>
-                      <button
-                        onClick={() => downloadFile(file)}
-                        disabled={actionLoadingId === file._id}
-                        className="flex-1 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 text-center disabled:opacity-50"
-                      >
-                        {actionLoadingId === file._id ? "⏳" : "Download"}
-                      </button>
-                      <button
-                        onClick={() => deleteFile(file)}
-                        className="w-8 py-1.5 rounded-lg text-red-500 hover:bg-red-50 text-xs text-center"
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
+                      {!file.sharedBy && !file.isSentShare && (
+                        <button
+                          onClick={() => {
+                            setShareItem(file);
+                            setShareItemType("file");
+                          }}
+                          className="flex-1 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 text-center flex items-center justify-center gap-1"
+                          title="Send or Share file"
+                        >
+                          <span>👥</span> Send
+                        </button>
+                      )}
+                      {file.sharePermission === "view" ? (
+                        <button
+                          disabled
+                          className="flex-1 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-xs font-semibold text-center cursor-not-allowed"
+                          title="View-only permission (Download disabled)"
+                        >
+                          🔒 View Only
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => downloadFile(file)}
+                          disabled={actionLoadingId === file._id}
+                          className="flex-1 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 text-center disabled:opacity-50"
+                        >
+                          {actionLoadingId === file._id ? "⏳" : "Download"}
+                        </button>
+                      )}
+                      {!file.sharedBy && !file.isSentShare && (
+                        <button
+                          onClick={() => deleteFile(file)}
+                          className="w-8 py-1.5 rounded-lg text-red-500 hover:bg-red-50 text-xs text-center"
+                          title="Delete"
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1186,6 +1447,11 @@ function Dashboard({ onLogout }) {
                                 From: {file.sharedBy?.name || file.sharedBy?.email}
                               </span>
                             )}
+                            {file.sentTo && (
+                              <span className="text-[10px] bg-sky-50 border border-sky-200 text-sky-700 px-2 py-0.5 rounded-full font-medium shrink-0">
+                                📤 Sent to: {file.sentTo}
+                              </span>
+                            )}
                           </div>
 
                           <p className="text-xs text-slate-400 mt-0.5 flex flex-wrap items-center gap-2">
@@ -1211,26 +1477,19 @@ function Dashboard({ onLogout }) {
                           {file.isStarred ? "⭐" : "☆"}
                         </button>
 
-                        {/* Share Button */}
-                        <button
-                          onClick={() => {
-                            setShareItem(file);
-                            setShareItemType("file");
-                          }}
-                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition flex items-center gap-1"
-                          title="Share file collaboratively"
-                        >
-                          <span>👥</span> Share
-                        </button>
-
-                        {/* Archive Button */}
-                        <button
-                          onClick={(e) => toggleArchive(file, e)}
-                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition flex items-center gap-1"
-                          title={file.isArchived ? "Unarchive file" : "Archive file"}
-                        >
-                          <span>{file.isArchived ? "📤" : "🗄️"}</span> {file.isArchived ? "Restore" : "Archive"}
-                        </button>
+                        {/* Share Button (Only if owner) */}
+                        {!file.sharedBy && !file.isSentShare && (
+                          <button
+                            onClick={() => {
+                              setShareItem(file);
+                              setShareItemType("file");
+                            }}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition flex items-center gap-1"
+                            title="Share file collaboratively"
+                          >
+                            <span>👥</span> Send / Share
+                          </button>
+                        )}
 
                         {/* Preview Button */}
                         <button
@@ -1242,19 +1501,29 @@ function Dashboard({ onLogout }) {
                         </button>
 
                         {/* Download Button */}
-                        <button
-                          onClick={() => downloadFile(file)}
-                          disabled={actionLoadingId === file._id}
-                          className="px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition flex items-center gap-1 disabled:opacity-50"
-                          title="Download file"
-                        >
-                          {actionLoadingId === file._id ? (
-                            <span>⏳</span>
-                          ) : (
-                            <span>⬇️</span>
-                          )}
-                          Download
-                        </button>
+                        {file.sharePermission === "view" ? (
+                          <button
+                            disabled
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100 text-xs font-semibold text-slate-400 cursor-not-allowed flex items-center gap-1"
+                            title="View-only permission (Download disabled)"
+                          >
+                            <span>🔒</span> View Only
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => downloadFile(file)}
+                            disabled={actionLoadingId === file._id}
+                            className="px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition flex items-center gap-1 disabled:opacity-50"
+                            title="Download file"
+                          >
+                            {actionLoadingId === file._id ? (
+                              <span>⏳</span>
+                            ) : (
+                              <span>⬇️</span>
+                            )}
+                            Download
+                          </button>
+                        )}
 
                         {/* Delete Button (only if owner) */}
                         {!file.sharedBy && (

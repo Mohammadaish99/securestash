@@ -13,7 +13,6 @@ function ForgotPassword({ onBackToLogin }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [previewCode, setPreviewCode] = useState("");
 
   // Strong password checks
   const hasMinLength = newPassword.length >= 8;
@@ -45,11 +44,7 @@ function ForgotPassword({ onBackToLogin }) {
         email: email.trim()
       });
 
-      setMessage(response.data.message || "Recovery code generated!");
-      if (response.data.resetCode) {
-        setPreviewCode(response.data.resetCode);
-        setResetCode(response.data.resetCode);
-      }
+      setMessage(response.data.message || "A 6-digit recovery code has been sent to your Gmail inbox!");
       setStep(2);
     } catch (err) {
       console.error("Forgot Password Error:", err);
@@ -81,6 +76,7 @@ function ForgotPassword({ onBackToLogin }) {
       setLoading(true);
       const response = await API.post("/auth/reset-password", {
         email: email.trim(),
+        code: resetCode.trim(),
         resetCode: resetCode.trim(),
         newPassword
       });
@@ -125,11 +121,6 @@ function ForgotPassword({ onBackToLogin }) {
               <span className="text-base shrink-0">✅</span>
               <div>
                 <p>{message}</p>
-                {previewCode && (
-                  <div className="mt-2 p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-xs font-mono text-emerald-200">
-                    Your 6-Digit Recovery Code: <span className="font-bold text-sm tracking-wider text-white">{previewCode}</span>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -187,6 +178,18 @@ function ForgotPassword({ onBackToLogin }) {
           {/* STEP 2: Verify Code & Set Strong Password */}
           {step === 2 && (
             <form onSubmit={handleResetPassword} className="space-y-5">
+              <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">📬</span>
+                  <p className="font-semibold text-white">Check Your Gmail Inbox</p>
+                </div>
+                <p className="text-slate-300 text-[12px] leading-relaxed">
+                  A 6-digit recovery code has been sent to: <strong className="text-white font-mono">{email}</strong>
+                </p>
+                <p className="mt-2 text-[11px] text-blue-300/80">
+                  Tip: Check your <strong>Inbox</strong>, <strong>Updates</strong>, or <strong>Spam/Junk</strong> folder.
+                </p>
+              </div>
               {/* Recovery Code */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
