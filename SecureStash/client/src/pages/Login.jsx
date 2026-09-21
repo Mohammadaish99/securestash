@@ -10,7 +10,6 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
   // Passwordless OTP login state
   const [otpStep, setOtpStep] = useState(1); // 1 = Enter email, 2 = Enter code
   const [loginOtp, setLoginOtp] = useState("");
-  const [fallbackCode, setFallbackCode] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -71,12 +70,6 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
       });
 
       setMessage(res.data.message || "A 6-digit login code has been sent to your Gmail inbox!");
-      if (res.data.code) {
-        setLoginOtp(res.data.code);
-        setFallbackCode(res.data.code);
-      } else {
-        setFallbackCode("");
-      }
       setOtpStep(2);
     } catch (err) {
       console.error("Send login OTP error:", err);
@@ -347,34 +340,18 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
             ) : (
               /* OTP Step 2 */
               <form onSubmit={handleVerifyLoginOtp} className="space-y-4">
-              {fallbackCode ? (
-                <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-base">⚡</span>
-                    <p className="font-semibold text-emerald-200">Instant Login Code (Cloud Demo)</p>
-                  </div>
-                  <p className="text-slate-300 text-[12px] leading-relaxed">
-                    Render free tier firewall blocks outbound SMTP email ports. Your login code is:
-                  </p>
-                  <div className="mt-2.5 flex items-center justify-between bg-slate-950/80 p-2.5 rounded-xl border border-emerald-500/20">
-                    <span className="text-xl font-bold font-mono tracking-[0.25em] text-emerald-300 pl-1">{fallbackCode}</span>
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-lg font-semibold uppercase tracking-wider">✓ Auto-filled</span>
-                  </div>
+              <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">📬</span>
+                  <p className="font-semibold text-white">Check Your Gmail Inbox</p>
                 </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-base">📬</span>
-                    <p className="font-semibold text-white">Check Your Gmail Inbox</p>
-                  </div>
-                  <p className="text-slate-300 text-[12px]">
-                    One-time login code dispatched to: <strong className="text-white font-mono">{email}</strong>
-                  </p>
-                  <p className="mt-1 text-[11px] text-blue-300/80">
-                    Check your Inbox and Spam/Junk folder. Valid for 10 minutes.
-                  </p>
-                </div>
-              )}
+                <p className="text-slate-300 text-[12px]">
+                  One-time login code dispatched directly to: <strong className="text-white font-mono">{email}</strong>
+                </p>
+                <p className="mt-1 text-[11px] text-blue-300/80">
+                  Please check your Inbox and Spam/Junk folder. Code is valid for 10 minutes.
+                </p>
+              </div>
 
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">

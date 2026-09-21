@@ -7,6 +7,7 @@ const File = require("../models/File");
 const Folder = require("../models/Folder");
 const User = require("../models/User");
 const protect = require("../middleware/authMiddleware");
+const { decryptFileToBuffer } = require("../utils/encryption");
 
 const router = express.Router();
 const uploadsDir = path.join(__dirname, "../uploads");
@@ -67,9 +68,11 @@ router.get("/public/download/:id", async (req, res) => {
             });
         }
 
-        res.download(filePath, file.originalName, (err) => {
-            if (err) console.error("Public Download Stream Error:", err);
-        });
+        const decryptedBuffer = decryptFileToBuffer(filePath);
+        res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(file.originalName)}"`);
+        res.setHeader("Content-Type", file.fileType || "application/octet-stream");
+        res.setHeader("Content-Length", decryptedBuffer.length);
+        return res.send(decryptedBuffer);
     } catch (error) {
         console.error("Public Download Error:", error);
         res.status(500).json({
@@ -97,14 +100,14 @@ router.get("/public/preview/:id", async (req, res) => {
             });
         }
 
+        const decryptedBuffer = decryptFileToBuffer(filePath);
         res.setHeader("Content-Type", file.fileType || "application/octet-stream");
         res.setHeader(
             "Content-Disposition",
             `inline; filename="${encodeURIComponent(file.originalName)}"`
         );
-
-        const stream = fs.createReadStream(filePath);
-        stream.pipe(res);
+        res.setHeader("Content-Length", decryptedBuffer.length);
+        return res.send(decryptedBuffer);
     } catch (error) {
         console.error("Public Preview Error:", error);
         res.status(500).json({

@@ -157,14 +157,16 @@ router.post("/send-register-otp", registerLimiter, async (req, res) => {
             name: trimmedName
         });
 
+        if (!emailResult.sent) {
+            return res.status(500).json({
+                message: "Unable to deliver verification code to your Gmail inbox. Please check your email address or try again in a few moments."
+            });
+        }
+
         res.status(200).json({
-            message: emailResult.sent
-                ? `A 6-digit verification code has been sent to your Gmail inbox (${cleanEmail}). Please check your Inbox and Spam folder.`
-                : `Verification code generated! (Cloud host blocked email delivery — code provided below)`,
-            code: emailResult.sent ? undefined : code,
+            message: `A 6-digit verification code has been sent to your Gmail inbox (${cleanEmail}). Please check your Inbox and Spam folder.`,
             email: cleanEmail,
-            verificationRequired: true,
-            emailDelivered: emailResult.sent
+            verificationRequired: true
         });
 
     } catch (error) {
@@ -463,13 +465,15 @@ router.post("/send-login-otp", loginLimiter, async (req, res) => {
             name: user.name
         });
 
+        if (!emailResult.sent) {
+            return res.status(500).json({
+                message: "Unable to deliver login code to your Gmail inbox. Please verify your email address or try again in a few moments."
+            });
+        }
+
         res.status(200).json({
-            message: emailResult.sent
-                ? `A 6-digit login code has been sent to your Gmail inbox (${cleanEmail}). Please check your Inbox and Spam folder.`
-                : `One-time login code generated! (Cloud host blocked email delivery — code provided below)`,
-            code: emailResult.sent ? undefined : code,
-            email: cleanEmail,
-            emailDelivered: emailResult.sent
+            message: `A 6-digit login code has been sent to your Gmail inbox (${cleanEmail}). Please check your Inbox and Spam folder.`,
+            email: cleanEmail
         });
 
     } catch (error) {
@@ -600,12 +604,14 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
             name: user.name
         });
 
+        if (!emailResult.sent) {
+            return res.status(500).json({
+                message: "Unable to deliver password recovery code to your Gmail inbox. Please verify your email address or try again in a few moments."
+            });
+        }
+
         res.status(200).json({
-            message: emailResult.sent
-                ? "A 6-digit password recovery code has been sent to your Gmail inbox. It expires in 15 minutes."
-                : "A 6-digit recovery code has been generated! (Cloud host blocked email delivery — code provided below)",
-            code: emailResult.sent ? undefined : resetCode,
-            emailDelivered: emailResult.sent
+            message: "A 6-digit password recovery code has been sent to your Gmail inbox. It expires in 15 minutes."
         });
 
     } catch (error) {

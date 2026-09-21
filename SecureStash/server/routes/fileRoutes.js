@@ -3,10 +3,12 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
+const mongoose = require("mongoose");
 const File = require("../models/File");
 const Folder = require("../models/Folder");
 const Share = require("../models/Share");
 const protect = require("../middleware/authMiddleware");
+const { encryptFileInPlace, decryptFileToBuffer } = require("../utils/encryption");
 
 const router = express.Router();
 
@@ -105,10 +107,17 @@ router.post("/upload", protect, upload.single("file"), async (req, res) => {
             targetFolder = validFolder._id;
         }
 
+        const savedFilePath = path.join(uploadsDir, req.file.filename);
+        try {
+            encryptFileInPlace(savedFilePath);
+        } catch (encErr) {
+            console.error("AES-256 In-Place Encryption Error:", encErr);
+        }
+
         const savedFile = await File.create({
             name: req.file.filename,
             originalName: req.file.originalname,
-            fileUrl: `/uploads/${req.file.filename}`,
+            fileUrl: `/api/files/download/${req.file.filename}`,
             fileType: req.file.mimetype,
             fileSize: req.file.size,
             owner: req.user,
@@ -116,7 +125,7 @@ router.post("/upload", protect, upload.single("file"), async (req, res) => {
         });
 
         res.status(201).json({
-            message: "File uploaded successfully",
+            message: "File uploaded and encrypted successfully",
             file: savedFile
         });
     } catch (error) {
@@ -193,6 +202,11 @@ router.post("/upload-url", protect, async (req, res) => {
         const destinationPath = path.join(uploadsDir, uniqueName);
 
         fs.writeFileSync(destinationPath, buffer);
+        try {
+            encryptFileInPlace(destinationPath);
+        } catch (encErr) {
+            console.error("AES-256 In-Place Encryption Error (URL upload):", encErr);
+        }
 
         let targetFolder = null;
         if (folder && folder !== "null" && folder !== "undefined") {
@@ -212,7 +226,7 @@ router.post("/upload-url", protect, async (req, res) => {
         const savedFile = await File.create({
             name: uniqueName,
             originalName: originalName,
-            fileUrl: `/uploads/${uniqueName}`,
+            fileUrl: `/api/files/download/${uniqueName}`,
             fileType: contentType.split(";")[0],
             fileSize: buffer.length,
             owner: req.user,
@@ -220,7 +234,7 @@ router.post("/upload-url", protect, async (req, res) => {
         });
 
         res.status(201).json({
-            message: "File uploaded successfully from URL",
+            message: "File downloaded, encrypted and stashed successfully",
             file: savedFile
         });
     } catch (error) {
@@ -259,22 +273,34 @@ router.get("/", protect, async (req, res) => {
 // ===============================
 router.get("/download/:id", protect, async (req, res) => {
     try {
-        let file = await File.findOne({
-            _id: req.params.id,
-            owner: req.user
-        });
+        const idOrName = req.params.id;
+        const isObjectId = mongoose.Types.ObjectId.isValid(idOrName);
+        let file = null;
+
+        if (isObjectId) {
+            file = await File.findOne({
+                _id: idOrName,
+                owner: req.user
+            });
+        }
+        if (!file) {
+            file = await File.findOne({
+                name: idOrName,
+                owner: req.user
+            });
+        }
 
         // If not owner, check if the file or its folder was shared with user
-        if (!file) {
+        if (!file && isObjectId) {
             const hasFileShare = await Share.findOne({
-                file: req.params.id,
+                file: idOrName,
                 sharedWith: req.user
             });
 
             if (hasFileShare) {
-                file = await File.findById(req.params.id);
+                file = await File.findById(idOrName);
             } else {
-                const candidate = await File.findById(req.params.id);
+                const candidate = await File.findById(idOrName);
                 if (candidate && candidate.folder) {
                     const hasFolderShare = await Share.findOne({
                         folder: candidate.folder,
@@ -301,16 +327,11 @@ router.get("/download/:id", protect, async (req, res) => {
             });
         }
 
-        res.download(filePath, file.originalName, (error) => {
-            if (error) {
-                console.error("Download Error:", error);
-                if (!res.headersSent) {
-                    res.status(500).json({
-                        message: "File download failed"
-                    });
-                }
-            }
-        });
+        const decryptedBuffer = decryptFileToBuffer(filePath);
+        res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(file.originalName)}"`);
+        res.setHeader("Content-Type", file.fileType || "application/octet-stream");
+        res.setHeader("Content-Length", decryptedBuffer.length);
+        return res.send(decryptedBuffer);
     } catch (error) {
         console.error("Secure Download Error:", error);
         res.status(500).json({
@@ -324,20 +345,32 @@ router.get("/download/:id", protect, async (req, res) => {
 // ===============================
 router.get("/preview/:id", protect, async (req, res) => {
     try {
-        let file = await File.findOne({
-            _id: req.params.id,
-            owner: req.user
-        });
+        const idOrName = req.params.id;
+        const isObjectId = mongoose.Types.ObjectId.isValid(idOrName);
+        let file = null;
 
+        if (isObjectId) {
+            file = await File.findOne({
+                _id: idOrName,
+                owner: req.user
+            });
+        }
         if (!file) {
+            file = await File.findOne({
+                name: idOrName,
+                owner: req.user
+            });
+        }
+
+        if (!file && isObjectId) {
             const hasFileShare = await Share.findOne({
-                file: req.params.id,
+                file: idOrName,
                 sharedWith: req.user
             });
             if (hasFileShare) {
-                file = await File.findById(req.params.id);
+                file = await File.findById(idOrName);
             } else {
-                const candidate = await File.findById(req.params.id);
+                const candidate = await File.findById(idOrName);
                 if (candidate && candidate.folder) {
                     const hasFolderShare = await Share.findOne({
                         folder: candidate.folder,
@@ -361,9 +394,11 @@ router.get("/preview/:id", protect, async (req, res) => {
             });
         }
 
+        const decryptedBuffer = decryptFileToBuffer(filePath);
         res.setHeader("Content-Type", file.fileType || "application/octet-stream");
         res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file.originalName)}"`);
-        fs.createReadStream(filePath).pipe(res);
+        res.setHeader("Content-Length", decryptedBuffer.length);
+        return res.send(decryptedBuffer);
     } catch (error) {
         console.error("Preview Error:", error);
         res.status(500).json({
@@ -513,16 +548,11 @@ router.get("/shared-download/:fileId", protect, async (req, res) => {
             });
         }
 
-        res.download(filePath, file.originalName, (error) => {
-            if (error) {
-                console.error("Shared Download Error:", error);
-                if (!res.headersSent) {
-                    res.status(500).json({
-                        message: "File download failed"
-                    });
-                }
-            }
-        });
+        const decryptedBuffer = decryptFileToBuffer(filePath);
+        res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(file.originalName)}"`);
+        res.setHeader("Content-Type", file.fileType || "application/octet-stream");
+        res.setHeader("Content-Length", decryptedBuffer.length);
+        return res.send(decryptedBuffer);
     } catch (error) {
         console.error("Shared File Error:", error);
         res.status(500).json({

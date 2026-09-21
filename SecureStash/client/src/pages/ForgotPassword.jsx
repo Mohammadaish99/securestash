@@ -5,7 +5,6 @@ function ForgotPassword({ onBackToLogin }) {
   const [step, setStep] = useState(1); // 1 = Request code, 2 = Verify code & reset
   const [email, setEmail] = useState("");
   const [resetCode, setResetCode] = useState("");
-  const [fallbackCode, setFallbackCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -46,12 +45,6 @@ function ForgotPassword({ onBackToLogin }) {
       });
 
       setMessage(response.data.message || "A 6-digit recovery code has been sent to your Gmail inbox!");
-      if (response.data.code) {
-        setResetCode(response.data.code);
-        setFallbackCode(response.data.code);
-      } else {
-        setFallbackCode("");
-      }
       setStep(2);
     } catch (err) {
       console.error("Forgot Password Error:", err);
@@ -185,34 +178,18 @@ function ForgotPassword({ onBackToLogin }) {
           {/* STEP 2: Verify Code & Set Strong Password */}
           {step === 2 && (
             <form onSubmit={handleResetPassword} className="space-y-5">
-              {fallbackCode ? (
-                <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-base">⚡</span>
-                    <p className="font-semibold text-emerald-200">Instant Recovery Code (Cloud Demo)</p>
-                  </div>
-                  <p className="text-slate-300 text-[12px] leading-relaxed">
-                    Render free tier firewall blocks outbound SMTP email ports. Your recovery code is:
-                  </p>
-                  <div className="mt-2.5 flex items-center justify-between bg-slate-950/80 p-2.5 rounded-xl border border-emerald-500/20">
-                    <span className="text-xl font-bold font-mono tracking-[0.25em] text-emerald-300 pl-1">{fallbackCode}</span>
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-lg font-semibold uppercase tracking-wider">✓ Auto-filled</span>
-                  </div>
+              <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">📬</span>
+                  <p className="font-semibold text-white">Check Your Gmail Inbox</p>
                 </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-base">📬</span>
-                    <p className="font-semibold text-white">Check Your Gmail Inbox</p>
-                  </div>
-                  <p className="text-slate-300 text-[12px] leading-relaxed">
-                    A 6-digit recovery code has been sent to: <strong className="text-white font-mono">{email}</strong>
-                  </p>
-                  <p className="mt-2 text-[11px] text-blue-300/80">
-                    Tip: Check your <strong>Inbox</strong>, <strong>Updates</strong>, or <strong>Spam/Junk</strong> folder.
-                  </p>
-                </div>
-              )}
+                <p className="text-slate-300 text-[12px] leading-relaxed">
+                  A 6-digit recovery code has been sent directly to: <strong className="text-white font-mono">{email}</strong>
+                </p>
+                <p className="mt-2 text-[11px] text-blue-300/80">
+                  Tip: Please check your <strong>Inbox</strong>, <strong>Updates</strong>, or <strong>Spam/Junk</strong> folder.
+                </p>
+              </div>
               {/* Recovery Code */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">

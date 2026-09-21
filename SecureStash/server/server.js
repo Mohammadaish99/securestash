@@ -20,12 +20,15 @@ const app = express();
 app.set("trust proxy", true);
 
 // ===============================
-// UPLOADS DIRECTORY INITIALIZATION
+// UPLOADS DIRECTORY INITIALIZATION & AES-256 VAULT ENCRYPTION
 // ===============================
+const { encryptAllExistingUploads } = require("./utils/encryption");
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
+// Automatically ensure all stored files/pictures/documents are AES-256 encrypted at rest
+encryptAllExistingUploads(uploadsDir);
 
 // ===============================
 // CORS & MIDDLEWARE
@@ -51,9 +54,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ===============================
-// STATIC FILES & UPLOADS
+// SECURE STORAGE (BLOCK UNENCRYPTED DIRECT ACCESS)
 // ===============================
-app.use("/uploads", express.static(uploadsDir));
+// All files are encrypted at rest with AES-256 and must be accessed via authenticated routes (/api/files/download or /api/shares/public)
+app.use("/uploads", (req, res) => {
+    res.status(403).json({
+        message: "Direct vault storage access is forbidden. All files are encrypted at rest and must be accessed through authenticated endpoints."
+    });
+});
 
 // ===============================
 // API ROUTES

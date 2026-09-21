@@ -20,9 +20,9 @@ function createTransporter() {
             user: user.trim(),
             pass: pass.trim().replace(/\s+/g, "") // Remove spaces from 16-character app password if any
         },
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 7000
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 12000
     });
 }
 
@@ -174,9 +174,9 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
             html
         });
 
-        // 2-second timeout safety guard so HTTP routes NEVER buffer or hang on cloud hosts!
+        // 12-second timeout safety guard so HTTP routes NEVER hang indefinitely
         const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("SMTP_CONNECTION_TIMEOUT")), 2000)
+            setTimeout(() => reject(new Error("SMTP_CONNECTION_TIMEOUT")), 12000)
         );
 
         const info = await Promise.race([sendPromise, timeoutPromise]);
