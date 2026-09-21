@@ -299,20 +299,16 @@ router.post("/register", registerLimiter, async (req, res) => {
             });
         }
 
-        // Strict verification: code MUST be provided and match pending verification
-        if (!code) {
-            return res.status(400).json({
-                message: "A verified 6-digit email OTP is required. Please request a verification code via /send-register-otp first."
-            });
+        // If an email verification code was provided, verify it; otherwise allow direct genuine registration
+        if (code) {
+            const pending = pendingVerifications.get(cleanEmail);
+            if (!pending || pending.code !== String(code).trim()) {
+                return res.status(400).json({
+                    message: "Invalid or expired verification code."
+                });
+            }
+            pendingVerifications.delete(cleanEmail);
         }
-
-        const pending = pendingVerifications.get(cleanEmail);
-        if (!pending || pending.code !== String(code).trim()) {
-            return res.status(400).json({
-                message: "Invalid or expired verification code."
-            });
-        }
-        pendingVerifications.delete(cleanEmail);
 
         const hashedPassword = await bcrypt.hash(password, 10);
 

@@ -2,14 +2,10 @@ import { useState } from "react";
 import API from "../api/api";
 
 function Register({ onLogin, onSuccess }) {
-  const [step, setStep] = useState("form"); // "form" | "verify"
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
-  const [verificationCode, setVerificationCode] = useState("");
-  const [fallbackCode, setFallbackCode] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -36,8 +32,8 @@ function Register({ onLogin, onSuccess }) {
   const isPasswordStrong = strengthScore === 5;
   const passwordsMatch = password && password === confirmPassword;
 
-  // Step 1: Send Registration OTP & Verify Genuine Email
-  const handleInitiateRegister = async (e) => {
+  // Instant 1-Step Registration (No Cloud Buffering)
+  const handleRegister = async (e) => {
     e.preventDefault();
     setMessage("");
     setError("");
@@ -52,28 +48,8 @@ function Register({ onLogin, onSuccess }) {
       return;
     }
 
-    if (!hasMinLength) {
-      setError("Password must be at least 8 characters long.");
-      return;
-    }
-
-    if (!hasUppercase) {
-      setError("Password must include at least one uppercase letter (A-Z).");
-      return;
-    }
-
-    if (!hasLowercase) {
-      setError("Password must include at least one lowercase letter (a-z).");
-      return;
-    }
-
-    if (!hasNumber) {
-      setError("Password must include at least one number (0-9).");
-      return;
-    }
-
-    if (!hasSpecial) {
-      setError("Password must include at least one special character (!@#$%^&*...).");
+    if (!isPasswordStrong) {
+      setError("Please satisfy all strong password requirements.");
       return;
     }
 
@@ -84,52 +60,13 @@ function Register({ onLogin, onSuccess }) {
 
     try {
       setLoading(true);
-      const response = await API.post("/auth/send-register-otp", {
+      const response = await API.post("/auth/register", {
         name: name.trim(),
         email: email.trim(),
         password
       });
 
-      setMessage(response.data.message || "Verification code sent to your Gmail inbox! Please enter the 6-digit code.");
-      if (response.data.code) {
-        setVerificationCode(response.data.code);
-        setFallbackCode(response.data.code);
-      } else {
-        setFallbackCode("");
-      }
-      setStep("verify");
-    } catch (err) {
-      console.error("Registration initiation error:", err);
-      setError(
-        err.response?.data?.message ||
-          (err.code === "ERR_NETWORK" || err.message === "Network Error"
-            ? "Unable to connect to SecureStash server. Please ensure the backend is running."
-            : "Registration failed. Please check your details.")
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 2: Confirm 6-Digit Code & Create Account
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    setMessage("");
-    setError("");
-
-    if (!verificationCode.trim() || verificationCode.trim().length !== 6) {
-      setError("Please enter the complete 6-digit verification code.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await API.post("/auth/verify-and-register", {
-        email: email.trim(),
-        code: verificationCode.trim()
-      });
-
-      setMessage("Email verified! Account created successfully! Preparing your stash...");
+      setMessage("Account created successfully! Launching your private vault...");
 
       if (response.data.token) {
         localStorage.setItem("securestash_token", response.data.token);
@@ -137,22 +74,21 @@ function Register({ onLogin, onSuccess }) {
           "securestash_user",
           JSON.stringify(response.data.user)
         );
-
-        if (onSuccess) {
-          setTimeout(() => {
-            onSuccess();
-          }, 800);
-          return;
-        }
       }
 
-      setTimeout(() => {
-        onLogin(email);
-      }, 1000);
-
+      if (onSuccess) {
+        setTimeout(() => {
+          onSuccess();
+        }, 500);
+      }
     } catch (err) {
-      console.error("OTP verification error:", err);
-      setError(err.response?.data?.message || "Invalid or expired verification code.");
+      console.error("Registration error:", err);
+      setError(
+        err.response?.data?.message ||
+          (err.code === "ERR_NETWORK" || err.message === "Network Error"
+            ? "Unable to connect to SecureStash server. Please ensure the backend is running."
+            : "Registration failed. Please check your details.")
+      );
     } finally {
       setLoading(false);
     }
@@ -185,16 +121,14 @@ function Register({ onLogin, onSuccess }) {
           <div className="mb-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-white">
-                {step === "form" ? "Create Account" : "Verify Email"}
+                Create Account
               </h2>
               <span className="text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                {step === "form" ? "Step 1 of 2" : "Step 2 of 2"}
+                Instant Vault Setup
               </span>
             </div>
             <p className="text-slate-400 text-xs mt-1">
-              {step === "form"
-                ? "Requires genuine email verification (DNS MX verified)"
-                : `Enter the 6-digit verification code sent to ${email}`}
+              Enter your details to create your secure vault
             </p>
           </div>
 
@@ -213,9 +147,7 @@ function Register({ onLogin, onSuccess }) {
             </div>
           )}
 
-          {step === "form" ? (
-            /* STEP 1 FORM */
-            <form onSubmit={handleInitiateRegister} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4">
               {/* Full Name */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
@@ -383,105 +315,16 @@ function Register({ onLogin, onSuccess }) {
                 {loading ? (
                   <>
                     <span className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                    <span>Verifying Email Domain...</span>
+                    <span>Creating Vault...</span>
                   </>
                 ) : (
                   <>
-                    <span>Verify & Continue</span>
+                    <span>Create Secure Account</span>
                     <span>&rarr;</span>
                   </>
                 )}
               </button>
             </form>
-          ) : (
-            /* STEP 2: VERIFICATION OTP */
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              {fallbackCode ? (
-                <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-base">⚡</span>
-                    <p className="font-semibold text-emerald-200">Instant Verification Code (Cloud Demo)</p>
-                  </div>
-                  <p className="text-slate-300 text-[12px] leading-relaxed">
-                    Render free tier firewall blocks outbound SMTP email ports. Your verification code is:
-                  </p>
-                  <div className="mt-2.5 flex items-center justify-between bg-slate-950/80 p-2.5 rounded-xl border border-emerald-500/20">
-                    <span className="text-xl font-bold font-mono tracking-[0.25em] text-emerald-300 pl-1">{fallbackCode}</span>
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-lg font-semibold uppercase tracking-wider">✓ Auto-filled</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-base">📬</span>
-                    <p className="font-semibold text-white">Check Your Gmail Inbox</p>
-                  </div>
-                  <p className="text-slate-300 text-[12px] leading-relaxed">
-                    A 6-digit verification code has been dispatched to: <strong className="text-white font-mono">{email}</strong>
-                  </p>
-                  <p className="mt-2 text-[11px] text-blue-300/80">
-                    Tip: Check your <strong>Inbox</strong>, <strong>Updates</strong>, or <strong>Spam/Junk</strong> folder. Enter the code below to activate your account.
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  6-Digit Verification Code
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-                  placeholder="123456"
-                  required
-                  autoFocus
-                  className="w-full text-center tracking-[0.3em] font-mono text-2xl font-bold rounded-xl bg-slate-950/60 border border-slate-700/70 py-3 text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || verificationCode.length !== 6}
-                className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold py-3.5 px-4 shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
-              >
-                {loading ? (
-                  <>
-                    <span className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                    <span>Activating Account...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>✓ Activate Account & Launch Vault</span>
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep("form");
-                    setError("");
-                    setMessage("");
-                  }}
-                  className="text-xs text-slate-400 hover:text-white transition flex items-center gap-1"
-                >
-                  <span>&larr;</span> Change Email
-                </button>
-
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={handleInitiateRegister}
-                  className="text-xs text-blue-400 hover:text-blue-300 transition font-medium"
-                >
-                  Resend Code
-                </button>
-              </div>
-            </form>
-          )}
 
           {/* Switch to Login */}
           <div className="mt-6 text-center pt-6 border-t border-slate-800">
