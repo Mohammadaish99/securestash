@@ -439,9 +439,13 @@ router.post("/send-login-otp", loginLimiter, async (req, res) => {
         const code = Math.floor(100000 + crypto.randomInt(0, 900000)).toString();
         const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
+        // Cryptographically hash the OTP before storing in memory (Zero Plaintext Memory Leaks)
+        const hashCode = crypto.createHash("sha256").update(code).digest("hex");
+
         // Store pending OTP for this specific email (supports both existing and new users!)
         pendingLoginOtps.set(cleanEmail, {
-            code,
+            hashCode,
+            attempts: 0,
             expiresAt,
             userId: user ? user._id : null,
             isNewUser: !user,
@@ -449,7 +453,7 @@ router.post("/send-login-otp", loginLimiter, async (req, res) => {
         });
 
         const recipientName = user ? user.name : cleanEmail.split("@")[0];
-        console.log(`⚡ Passwordless OTP for ${cleanEmail} (New User: ${!user}): ${code}`);
+        console.log(`🔒 [SECURE ENCRYPTED OTP] Dispatched to ${cleanEmail} (Valid for 10m)`);
 
         // Asynchronous background email dispatch (Zero-Buffering Instant Response)
         sendOtpEmail({
@@ -503,9 +507,26 @@ router.post("/verify-login-otp", loginLimiter, async (req, res) => {
             });
         }
 
-        if (pending.code !== String(code).trim()) {
+        // Anti-Brute-Force: Maximum 5 attempts before code is permanently revoked
+        pending.attempts = (pending.attempts || 0) + 1;
+        if (pending.attempts > 5) {
+            pendingLoginOtps.delete(cleanEmail);
+            return res.status(429).json({
+                message: "Too many incorrect attempts. For your security, this code has been revoked. Please request a new code."
+            });
+        }
+
+        // Timing-safe SHA-256 hash comparison (Prevents side-channel timing attacks)
+        const inputHash = crypto.createHash("sha256").update(String(code).trim()).digest("hex");
+        const isMatch = crypto.timingSafeEqual(
+            Buffer.from(inputHash, "hex"),
+            Buffer.from(pending.hashCode, "hex")
+        );
+
+        if (!isMatch) {
+            const remaining = 5 - pending.attempts;
             return res.status(400).json({
-                message: "Invalid login code. Please check the code sent to your Gmail inbox."
+                message: `Invalid login code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`
             });
         }
 
