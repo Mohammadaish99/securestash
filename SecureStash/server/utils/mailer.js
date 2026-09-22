@@ -103,6 +103,48 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
 </body>
 </html>
 `;
+
+    const recipientEmail = String(to).toLowerCase().trim();
+    const recipientName = String(name || "SecureStash User").trim();
+
+    // ⚡ INSTANT CLOUD DELIVERY: Brevo HTTPS API (Port 443 — 100% open on Render & Vercel!)
+    if (process.env.BREVO_API_KEY) {
+        try {
+            const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: {
+                    "api-key": process.env.BREVO_API_KEY.trim(),
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify({
+                    sender: {
+                        name: "SecureStash Vault",
+                        email: process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : "aishm4864@gmail.com"
+                    },
+                    to: [{ email: recipientEmail, name: recipientName }],
+                    subject,
+                    htmlContent: html,
+                    textContent: `Hello ${recipientName},\n\nYour SecureStash verification code is: ${code}\n\nThis code will expire in 10 minutes.\nNever share this code with anyone.`
+                })
+            });
+
+            if (brevoRes.ok) {
+                const brevoData = await brevoRes.json();
+                console.log(`✅ [BREVO SENT IN 1S] OTP delivered specifically to ${recipientEmail} (MessageID: ${brevoData.messageId})`);
+                return {
+                    sent: true,
+                    messageId: brevoData.messageId
+                };
+            } else {
+                const errText = await brevoRes.text();
+                console.warn("⚠️ Brevo HTTPS API returned error, falling back to Gmail SMTP:", errText);
+            }
+        } catch (brevoErr) {
+            console.warn("⚠️ Brevo HTTPS request failed, falling back to Gmail SMTP:", brevoErr.message);
+        }
+    }
+
     if (!transporter) {
         console.warn("\n==================================================");
         console.warn("⚠️  GMAIL SMTP NOT CONFIGURED IN server/.env");
@@ -122,9 +164,9 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
     try {
         const sendPromise = transporter.sendMail({
             from: `"SecureStash" <${process.env.EMAIL_USER}>`,
-            to,
+            to: recipientEmail,
             subject,
-            text: `Hello ${name},\n\nYour SecureStash verification code is: ${code}\n\nThis code will expire in 10 minutes.\nNever share this code with anyone.`,
+            text: `Hello ${recipientName},\n\nYour SecureStash verification code is: ${code}\n\nThis code will expire in 10 minutes.\nNever share this code with anyone.`,
             html
         });
 
@@ -135,7 +177,7 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
 
         const info = await Promise.race([sendPromise, timeoutPromise]);
 
-        console.log(`✅ [GMAIL SENT] OTP email dispatched to ${to} (MessageID: ${info.messageId})`);
+        console.log(`✅ [GMAIL SENT] OTP email dispatched to ${recipientEmail} (MessageID: ${info.messageId})`);
         return {
             sent: true,
             messageId: info.messageId
