@@ -145,7 +145,7 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
       <div className="w-full max-w-md relative z-10">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-xl shadow-blue-500/25 mb-4 ring-1 ring-white/20">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 icon-3d shadow-xl shadow-blue-500/25 mb-4 ring-1 ring-white/20">
             <span className="text-3xl">🔐</span>
           </div>
 
@@ -158,8 +158,8 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
           </p>
         </div>
 
-        {/* Glassmorphism Card */}
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-8 shadow-2xl shadow-black/50">
+        {/* 3D Glassmorphism Card */}
+        <div className="glass-3d rounded-3xl p-8">
           <div className="mb-5">
             <h2 className="text-xl font-bold text-white">Welcome Back</h2>
             <p className="text-slate-400 text-xs mt-1">
@@ -290,7 +290,7 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3.5 font-semibold text-white hover:from-blue-500 hover:to-indigo-500 transition shadow-lg shadow-blue-600/30 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                  className="w-full btn-3d-primary rounded-xl py-3.5 font-semibold text-white disabled:opacity-50 text-sm flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -337,7 +337,7 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
                 <button
                   type="submit"
                   disabled={loading || !email.trim()}
-                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3.5 font-semibold text-white hover:from-blue-500 hover:to-indigo-500 transition shadow-lg shadow-blue-600/30 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                  className="w-full btn-3d-primary rounded-xl py-3.5 font-semibold text-white disabled:opacity-50 text-sm flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -385,7 +385,7 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
                 <button
                   type="submit"
                   disabled={loading || loginOtp.length !== 6}
-                  className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold py-3.5 px-4 shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
+                  className="w-full btn-3d-primary rounded-xl text-white font-semibold py-3.5 px-4 transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
                 >
                   {loading ? (
                     <>

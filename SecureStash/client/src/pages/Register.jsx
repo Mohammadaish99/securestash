@@ -103,7 +103,7 @@ function Register({ onLogin, onSuccess }) {
       <div className="w-full max-w-md relative z-10">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-xl shadow-blue-500/25 mb-4 ring-1 ring-white/20">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 icon-3d shadow-xl shadow-blue-500/25 mb-4 ring-1 ring-white/20">
             <span className="text-3xl">🔐</span>
           </div>
 
@@ -116,8 +116,8 @@ function Register({ onLogin, onSuccess }) {
           </p>
         </div>
 
-        {/* Glass Card */}
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-8 shadow-2xl shadow-black/50">
+        {/* 3D Glass Card */}
+        <div className="glass-3d rounded-3xl p-8">
           <div className="mb-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-white">
@@ -310,7 +310,7 @@ function Register({ onLogin, onSuccess }) {
               <button
                 type="submit"
                 disabled={loading || !isPasswordStrong || !passwordsMatch}
-                className="w-full mt-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-3.5 px-4 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/40 transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                className="w-full mt-2 btn-3d-primary rounded-xl text-white font-semibold py-3.5 px-4 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 {loading ? (
                   <>

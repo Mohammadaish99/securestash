@@ -101,11 +101,11 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center px-4 z-50 animate-fade-in">
-      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 text-slate-100 relative">
+      <div className="w-full max-w-lg glass-3d rounded-3xl p-6 text-slate-100 relative">
         {/* Header */}
         <div className="flex items-start justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30 flex items-center justify-center text-2xl">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30 icon-3d flex items-center justify-center text-2xl">
               {isFile ? "📄" : "📁"}
             </div>
             <div>

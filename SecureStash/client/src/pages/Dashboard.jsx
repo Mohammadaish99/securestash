@@ -1069,7 +1069,7 @@ function Dashboard({ onLogout }) {
             <div className="flex flex-wrap gap-2.5">
               <button
                 onClick={() => fetchData()}
-                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 transition text-sm flex items-center gap-1.5 shadow-sm"
+                className="btn-3d-secondary rounded-xl px-3.5 py-2.5 font-semibold text-sm flex items-center gap-1.5"
                 title="Refresh Stash"
               >
                 <span>🔄</span>
@@ -1081,7 +1081,7 @@ function Dashboard({ onLogout }) {
                   setFolderName("");
                   setShowFolderModal(true);
                 }}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 transition text-sm flex items-center gap-2 shadow-sm"
+                className="btn-3d-secondary rounded-xl px-4 py-2.5 font-semibold text-sm flex items-center gap-2"
               >
                 <span>+</span> New Folder
               </button>
@@ -1092,16 +1092,18 @@ function Dashboard({ onLogout }) {
                   setUrlInput("");
                   setShowUrlModal(true);
                 }}
-                className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 font-semibold text-blue-700 hover:bg-blue-100 transition text-sm flex items-center gap-2 shadow-sm"
+                className="btn-3d-secondary rounded-xl px-4 py-2.5 font-semibold text-sm flex items-center gap-2 text-blue-700 border-blue-200"
               >
                 <span>🌐</span> From URL
               </button>
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 font-semibold text-white hover:from-blue-500 hover:to-indigo-500 transition text-sm flex items-center gap-2 shadow-md shadow-blue-500/20"
+                disabled={uploadingFile}
+                className="btn-3d-primary rounded-xl px-5 py-2.5 font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
               >
-                <span>⬆</span> Upload File
+                <span>{uploadingFile ? "⏳" : "⬆"}</span>
+                <span>{uploadingFile ? "Uploading..." : "Upload File"}</span>
               </button>
             </div>
           </div>
@@ -1237,7 +1239,7 @@ function Dashboard({ onLogout }) {
                     <div
                       key={share._id}
                       onClick={() => openSharedFolder(folder, share)}
-                      className="bg-white rounded-2xl border border-indigo-200 p-4 hover:border-indigo-400 hover:shadow-md transition cursor-pointer group relative"
+                      className="card-3d rounded-2xl border-indigo-200 p-4 hover:border-indigo-400 cursor-pointer group relative"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-3xl group-hover:scale-110 transition">📂</span>
@@ -1342,7 +1344,7 @@ function Dashboard({ onLogout }) {
                           setCurrentFolder(folder);
                           setUploadTargetFolderId(folder._id);
                         }}
-                        className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-blue-400 hover:shadow-md transition cursor-pointer group relative"
+                        className="card-3d rounded-2xl p-4 hover:border-blue-400 cursor-pointer group relative"
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-3xl group-hover:scale-110 transition">📁</span>
@@ -1444,7 +1446,7 @@ function Dashboard({ onLogout }) {
                 {displayedFiles.map((file) => (
                   <div
                     key={file._id}
-                    className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-blue-400 hover:shadow-md transition flex flex-col justify-between group"
+                    className="card-3d rounded-2xl p-4 hover:border-blue-400 flex flex-col justify-between group"
                   >
                     <div>
                       <div className="flex items-start justify-between">
@@ -1553,16 +1555,16 @@ function Dashboard({ onLogout }) {
               </div>
             ) : (
               /* LIST VIEW */
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="card-3d rounded-2xl overflow-hidden">
                 <div className="divide-y divide-slate-100">
                   {displayedFiles.map((file) => (
                     <div
                       key={file._id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 hover:bg-slate-50/80 transition gap-4"
+                      className="row-3d flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 transition gap-4"
                     >
                       {/* File Icon & Info */}
                       <div className="flex items-center min-w-0 flex-1">
-                        <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-2xl mr-3 shrink-0">
+                        <div className="w-11 h-11 rounded-xl bg-slate-100 icon-3d flex items-center justify-center text-2xl mr-3 shrink-0">
                           {getFileIcon(file)}
                         </div>
 
@@ -1709,7 +1711,7 @@ function Dashboard({ onLogout }) {
       {/* ================= NEW FOLDER MODAL ================= */}
       {showFolderModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 z-50 animate-fade-in">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100">
+          <div className="w-full max-w-md modal-3d rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-slate-900">Create New Folder</h3>
               <button
@@ -1746,14 +1748,14 @@ function Dashboard({ onLogout }) {
                   setFolderName("");
                   setError("");
                 }}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="btn-3d-secondary rounded-xl px-4 py-2 text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={createFolder}
                 disabled={creatingFolder}
-                className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="btn-3d-primary rounded-xl px-5 py-2 text-sm font-semibold disabled:opacity-50"
               >
                 {creatingFolder ? "Creating..." : "Create Folder"}
               </button>
@@ -1765,7 +1767,7 @@ function Dashboard({ onLogout }) {
       {/* ================= UPLOAD VIA URL MODAL ================= */}
       {showUrlModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 z-50 animate-fade-in">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100">
+          <div className="w-full max-w-md modal-3d rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🌐</span>
@@ -1827,23 +1829,21 @@ function Dashboard({ onLogout }) {
                     setUrlInput("");
                     setError("");
                   }}
-                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="btn-3d-secondary rounded-xl px-4 py-2 text-sm font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploadingUrl}
-                  className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  className="btn-3d-primary rounded-xl px-5 py-2 text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
                 >
                   {uploadingUrl ? (
                     <>
                       <span className="animate-spin">⏳</span> Stashing File...
                     </>
                   ) : (
-                    <>
-                      <span>⬆</span> Fetch & Upload
-                    </>
+                    "Upload from Web"
                   )}
                 </button>
               </div>
