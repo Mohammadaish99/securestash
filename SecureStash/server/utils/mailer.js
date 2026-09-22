@@ -76,50 +76,28 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
     const html = `
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; margin: 0; padding: 0; color: #f8fafc; }
-    .container { max-width: 540px; margin: 30px auto; background: #1e293b; border-radius: 20px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-    .header { background: linear-gradient(135deg, #1e3a8a, #312e81); padding: 32px 24px; text-align: center; }
-    .logo { font-size: 32px; line-height: 1; }
-    .brand { font-size: 22px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin-top: 8px; }
-    .content { padding: 32px 28px; }
-    .badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: ${badgeColor}; background: rgba(255,255,255,0.08); padding: 4px 12px; border-radius: 9999px; margin-bottom: 12px; }
-    .title { font-size: 22px; font-weight: 700; color: #ffffff; margin: 0 0 8px 0; }
-    .desc { font-size: 14px; line-height: 1.6; color: #94a3b8; margin: 0 0 24px 0; }
-    .code-card { background: #0f172a; border: 2px dashed #3b82f6; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px; }
-    .code-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; }
-    .code-number { font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #38bdf8; margin: 0; }
-    .expiry { font-size: 12px; color: #94a3b8; margin-top: 8px; }
-    .warning { font-size: 12px; line-height: 1.5; color: #cbd5e1; background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; padding: 12px; border-radius: 0 8px 8px 0; margin-bottom: 24px; }
-    .footer { background: #0b1120; padding: 20px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #1e293b; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">🔐</div>
-      <div class="brand">SecureStash</div>
+<head><meta charset="utf-8"></head>
+<body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
+  <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+    <div style="background-color: #0f172a; padding: 24px; text-align: center;">
+      <div style="font-size: 28px; line-height: 1;">🔐</div>
+      <div style="font-size: 20px; font-weight: 800; color: #ffffff; margin-top: 6px; letter-spacing: -0.5px;">SecureStash</div>
     </div>
-    <div class="content">
-      <div class="badge">${badgeText}</div>
-      <h2 class="title">${title}</h2>
-      <p class="desc">Hello ${name},<br>${description}</p>
-      
-      <div class="code-card">
-        <div class="code-label">Your 6-Digit One-Time Code</div>
-        <div class="code-number">${code}</div>
-        <div class="expiry">⏱️ Valid for 10 minutes only</div>
+    <div style="padding: 28px 24px;">
+      <div style="display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: ${badgeColor}; background-color: #f1f5f9; padding: 4px 10px; border-radius: 9999px; margin-bottom: 12px;">${badgeText}</div>
+      <h2 style="font-size: 20px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">${title}</h2>
+      <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 20px 0;">Hello ${name},<br>${description}</p>
+      <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 18px; text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 6px;">Your One-Time Code</div>
+        <div style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #2563eb; margin: 0;">${code}</div>
+        <div style="font-size: 12px; color: #64748b; margin-top: 6px;">Valid for 10 minutes</div>
       </div>
-
-      <div class="warning">
-        🔒 <strong>Security Tip:</strong> Never share this code with anyone. SecureStash staff will never ask for your verification code. If you did not request this, you can safely ignore this email.
-      </div>
+      <p style="font-size: 12px; line-height: 1.5; color: #64748b; margin: 0 0 16px 0;">
+        Never share this code with anyone. SecureStash staff will never ask for your code.
+      </p>
     </div>
-    <div class="footer">
-      This is an automated security message from SecureStash Cloud Storage.<br>
-      © 2026 SecureStash. All rights reserved.
+    <div style="background-color: #f8fafc; padding: 16px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9;">
+      SecureStash Cloud Vault &bull; Automated Security Verification
     </div>
   </div>
 </body>
@@ -143,16 +121,11 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
 
     try {
         const sendPromise = transporter.sendMail({
-            from: `"SecureStash Vault" <${process.env.EMAIL_USER}>`,
+            from: `"SecureStash" <${process.env.EMAIL_USER}>`,
             to,
             subject,
             text: `Hello ${name},\n\nYour SecureStash verification code is: ${code}\n\nThis code will expire in 10 minutes.\nNever share this code with anyone.`,
-            html,
-            headers: {
-                "X-Priority": "1 (Highest)",
-                "X-MSMail-Priority": "High",
-                "Importance": "High"
-            }
+            html
         });
 
         // 12-second timeout safety guard so HTTP routes NEVER hang indefinitely
