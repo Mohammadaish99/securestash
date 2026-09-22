@@ -287,9 +287,78 @@ function Dashboard({ onLogout }) {
   };
 
   // ===============================
-  // DELETE FILE
+  // DELETE FILE / REMOVE RECEIVED SHARE / REVOKE SENT SHARE
   // ===============================
   const deleteFile = async (file) => {
+    // 1. If this is a received shared file (someone sent it to me)
+    if (file.isSharedWithMe || file.sharedBy) {
+      const confirmRemove = window.confirm(
+        `Remove "${file.originalName}" from your Shared With Me list?\n(The owner's original file will remain safe)`
+      );
+      if (!confirmRemove) return;
+
+      try {
+        setActionLoadingId(file._id);
+        setError("");
+
+        if (file.shareId) {
+          await API.delete(`/shares/${file.shareId}`);
+        } else {
+          await API.delete(`/shares/received/file/${file._id}`);
+        }
+
+        setSharedFiles((prev) =>
+          prev.filter(
+            (s) =>
+              (s.file?._id || s.file) !== file._id &&
+              s._id !== file.shareId
+          )
+        );
+
+        if (sharedFolderView) {
+          setSharedFolderView((prev) => ({
+            ...prev,
+            files: (prev?.files || []).filter((f) => f._id !== file._id)
+          }));
+        }
+
+        setSuccess(`Shared file "${file.originalName}" removed from your stash.`);
+      } catch (err) {
+        console.error("Remove Shared File Error:", err);
+        setError(err.response?.data?.message || "Failed to remove shared file.");
+      } finally {
+        setActionLoadingId(null);
+      }
+      return;
+    }
+
+    // 2. If this is a sent share (shared by me to someone else)
+    if (file.isSentShare) {
+      const confirmRevoke = window.confirm(
+        `Revoke sharing access for "${file.originalName}"?\n(The collaborator will no longer have access)`
+      );
+      if (!confirmRevoke) return;
+
+      try {
+        setActionLoadingId(file._id);
+        setError("");
+
+        if (file.shareId) {
+          await API.delete(`/shares/${file.shareId}`);
+        }
+
+        setSentShares((prev) => prev.filter((s) => s._id !== file.shareId));
+        setSuccess(`Share access revoked for "${file.originalName}".`);
+      } catch (err) {
+        console.error("Revoke Share Error:", err);
+        setError(err.response?.data?.message || "Failed to revoke share.");
+      } finally {
+        setActionLoadingId(null);
+      }
+      return;
+    }
+
+    // 3. Normal personal file permanent delete
     const confirmDelete = window.confirm(
       `Are you sure you want to permanently delete "${file.originalName}"?`
     );
@@ -308,6 +377,47 @@ function Dashboard({ onLogout }) {
       setError(err.response?.data?.message || "Failed to delete file.");
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  // ===============================
+  // REMOVE RECEIVED SHARED WORKSPACE FOLDER
+  // ===============================
+  const removeSharedFolder = async (share, e) => {
+    if (e) e.stopPropagation();
+    const folderName = share?.folder?.name || "this workspace";
+    const confirmRemove = window.confirm(
+      `Remove shared workspace "${folderName}" from your stash?\n(The owner's original folder will remain safe)`
+    );
+    if (!confirmRemove) return;
+
+    try {
+      setError("");
+      const shareId = share?._id;
+      const folderId = share?.folder?._id || share?.folder;
+
+      if (shareId) {
+        await API.delete(`/shares/${shareId}`);
+      } else if (folderId) {
+        await API.delete(`/shares/received/folder/${folderId}`);
+      }
+
+      setSharedFolders((prev) =>
+        prev.filter((s) => s._id !== shareId && (s.folder?._id || s.folder) !== folderId)
+      );
+
+      if (
+        sharedFolderView &&
+        (sharedFolderView.share?._id === shareId ||
+          sharedFolderView.folder?._id === folderId)
+      ) {
+        setSharedFolderView(null);
+      }
+
+      setSuccess(`Shared workspace "${folderName}" removed from your stash.`);
+    } catch (err) {
+      console.error("Remove Shared Folder Error:", err);
+      setError(err.response?.data?.message || "Failed to remove shared workspace.");
     }
   };
 
@@ -492,13 +602,17 @@ function Dashboard({ onLogout }) {
         list = (sharedFolderView.files || []).map((file) => ({
           ...file,
           sharedBy: sharedFolderView.share?.owner,
-          sharePermission: sharedFolderView.permission
+          sharePermission: sharedFolderView.permission,
+          isSharedWithMe: true,
+          shareId: sharedFolderView.share?._id
         }));
       } else {
         list = sharedFiles.map((share) => ({
           ...(share.file || {}),
           sharedBy: share.owner,
-          sharePermission: share.permission
+          sharePermission: share.permission,
+          shareId: share._id,
+          isSharedWithMe: true
         })).filter((f) => f._id);
       }
     } else if (activeMenu === "Sent Files") {
@@ -1127,9 +1241,18 @@ function Dashboard({ onLogout }) {
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-3xl group-hover:scale-110 transition">📂</span>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                          {share.permission === "view" ? "View Only" : "Can Download"}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            {share.permission === "view" ? "View Only" : "Can Download"}
+                          </span>
+                          <button
+                            onClick={(e) => removeSharedFolder(share, e)}
+                            className="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition text-xs"
+                            title="Remove from Shared With Me"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
                       <h4 className="font-semibold text-slate-800 mt-3 truncate">{folder.name}</h4>
                       <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
@@ -1162,12 +1285,21 @@ function Dashboard({ onLogout }) {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setSharedFolderView(null)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-indigo-200 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-sm self-start sm:self-auto"
-              >
-                <span>←</span> Back to All Shared
-              </button>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  onClick={() => removeSharedFolder(sharedFolderView.share)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition shadow-sm"
+                  title="Remove this workspace from your stash"
+                >
+                  <span>🗑️</span> Remove from My Stash
+                </button>
+                <button
+                  onClick={() => setSharedFolderView(null)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-indigo-200 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-sm"
+                >
+                  <span>←</span> Back to All Shared
+                </button>
+              </div>
             </div>
           )}
 
@@ -1400,15 +1532,21 @@ function Dashboard({ onLogout }) {
                           {actionLoadingId === file._id ? "⏳" : "Download"}
                         </button>
                       )}
-                      {!file.sharedBy && !file.isSentShare && (
-                        <button
-                          onClick={() => deleteFile(file)}
-                          className="w-8 py-1.5 rounded-lg text-red-500 hover:bg-red-50 text-xs text-center"
-                          title="Delete"
-                        >
-                          🗑️
-                        </button>
-                      )}
+                      {/* Delete / Remove Button */}
+                      <button
+                        onClick={() => deleteFile(file)}
+                        disabled={actionLoadingId === file._id}
+                        className="w-8 py-1.5 rounded-lg text-red-500 hover:bg-red-50 text-xs text-center transition disabled:opacity-50"
+                        title={
+                          file.isSharedWithMe || file.sharedBy
+                            ? "Remove from Shared With Me"
+                            : file.isSentShare
+                            ? "Revoke share"
+                            : "Delete file"
+                        }
+                      >
+                        {actionLoadingId === file._id ? "⏳" : "🗑️"}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1525,17 +1663,28 @@ function Dashboard({ onLogout }) {
                           </button>
                         )}
 
-                        {/* Delete Button (only if owner) */}
-                        {!file.sharedBy && (
-                          <button
-                            onClick={() => deleteFile(file)}
-                            disabled={actionLoadingId === file._id}
-                            className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-xs font-semibold text-red-600 hover:bg-red-100 transition flex items-center gap-1 disabled:opacity-50"
-                            title="Delete file permanently"
-                          >
-                            <span>🗑️</span>
-                          </button>
-                        )}
+                        {/* Delete / Remove Action Button */}
+                        <button
+                          onClick={() => deleteFile(file)}
+                          disabled={actionLoadingId === file._id}
+                          className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-xs font-semibold text-red-600 hover:bg-red-100 transition flex items-center gap-1.5 disabled:opacity-50"
+                          title={
+                            file.isSharedWithMe || file.sharedBy
+                              ? "Remove from Shared With Me"
+                              : file.isSentShare
+                              ? "Revoke share"
+                              : "Delete file permanently"
+                          }
+                        >
+                          <span>{actionLoadingId === file._id ? "⏳" : "🗑️"}</span>
+                          <span>
+                            {file.isSharedWithMe || file.sharedBy
+                              ? "Remove"
+                              : file.isSentShare
+                              ? "Revoke"
+                              : "Delete"}
+                          </span>
+                        </button>
                       </div>
                     </div>
                   ))}

@@ -516,31 +516,120 @@ router.get("/folder/:folderId/collaborators", protect, async (req, res) => {
 });
 
 // ===============================
-// REVOKE SHARE ACCESS (DELETE SHARE)
+// DELETE / REMOVE / REVOKE SHARE
+// Works for both:
+// 1. Sender (Owner revoking share access from collaborator)
+// 2. Recipient (SharedWith user removing the shared item from their stash)
 // ===============================
 router.delete("/:shareId", protect, async (req, res) => {
     try {
+        const currentUser = await User.findById(req.user);
+        const userEmail = currentUser?.email ? currentUser.email.toLowerCase().trim() : "";
+
+        // Find share where requesting user is owner OR recipient
         const share = await Share.findOne({
             _id: req.params.shareId,
-            owner: req.user
+            $or: [
+                { owner: req.user },
+                { sharedWith: req.user },
+                ...(userEmail ? [{ invitedEmail: userEmail }] : [])
+            ]
         });
 
         if (!share) {
             return res.status(404).json({
-                message: "Share record not found or access denied"
+                message: "Share record not found or access denied."
+            });
+        }
+
+        const isOwner = String(share.owner) === String(req.user);
+        await Share.deleteOne({ _id: share._id });
+
+        res.status(200).json({
+            message: isOwner
+                ? "Share access revoked successfully."
+                : "Shared item removed from your stash successfully.",
+            shareId: req.params.shareId,
+            isOwner
+        });
+    } catch (error) {
+        console.error("Delete Share Error:", error);
+        res.status(500).json({
+            message: "Server error deleting share record."
+        });
+    }
+});
+
+// ===============================
+// RECIPIENT REMOVE RECEIVED FILE
+// ===============================
+router.delete("/received/file/:fileId", protect, async (req, res) => {
+    try {
+        const currentUser = await User.findById(req.user);
+        const userEmail = currentUser?.email ? currentUser.email.toLowerCase().trim() : "";
+
+        const share = await Share.findOne({
+            file: req.params.fileId,
+            $or: [
+                { sharedWith: req.user },
+                ...(userEmail ? [{ invitedEmail: userEmail }] : [])
+            ]
+        });
+
+        if (!share) {
+            return res.status(404).json({
+                message: "Shared file not found in your received list."
             });
         }
 
         await Share.deleteOne({ _id: share._id });
 
         res.status(200).json({
-            message: "Share access revoked successfully",
-            shareId: req.params.shareId
+            message: "Shared file removed from your stash.",
+            shareId: share._id,
+            fileId: req.params.fileId
         });
     } catch (error) {
-        console.error("Revoke Share Error:", error);
+        console.error("Remove Received File Error:", error);
         res.status(500).json({
-            message: "Server error"
+            message: "Server error removing shared file."
+        });
+    }
+});
+
+// ===============================
+// RECIPIENT REMOVE RECEIVED FOLDER
+// ===============================
+router.delete("/received/folder/:folderId", protect, async (req, res) => {
+    try {
+        const currentUser = await User.findById(req.user);
+        const userEmail = currentUser?.email ? currentUser.email.toLowerCase().trim() : "";
+
+        const share = await Share.findOne({
+            folder: req.params.folderId,
+            $or: [
+                { sharedWith: req.user },
+                ...(userEmail ? [{ invitedEmail: userEmail }] : [])
+            ]
+        });
+
+        if (!share) {
+            return res.status(404).json({
+                message: "Shared folder not found in your received list."
+            });
+        }
+
+        await Share.deleteOne({ _id: share._id });
+
+        res.status(200).json({
+            message: "Shared folder removed from your stash.",
+            shareId: share._id,
+            folderId: req.params.folderId
+        });
+    } catch (error) {
+        console.error("Remove Received Folder Error:", error);
+        res.status(500).json({
+            message: "Server error removing shared folder."
         });
     }
 });
