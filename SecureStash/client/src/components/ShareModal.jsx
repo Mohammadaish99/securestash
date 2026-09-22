@@ -100,22 +100,22 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center px-4 z-50 animate-fade-in">
-      <div className="w-full max-w-lg glass-3d rounded-3xl p-6 text-slate-100 relative">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50 animate-fade-in">
+      <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto glass-3d rounded-3xl p-4 sm:p-6 text-slate-100 relative">
         {/* Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30 icon-3d flex items-center justify-center text-2xl">
+        <div className="flex items-start justify-between pb-3 sm:pb-4 border-b border-slate-800">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30 icon-3d flex items-center justify-center text-xl sm:text-2xl shrink-0">
               {isFile ? "📄" : "📁"}
             </div>
-            <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-1.5">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-1.5 truncate">
                 <span>Share</span>
-                <span className="text-blue-400 truncate max-w-[220px]">
+                <span className="text-blue-400 truncate max-w-[170px] sm:max-w-[220px]">
                   "{isFile ? item.originalName : item.name}"
                 </span>
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate">
                 {isFile ? "Share file with anyone or invite collaborators" : "Share folder contents"}
               </p>
             </div>
@@ -123,7 +123,8 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition text-lg"
+            className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition text-lg shrink-0 cursor-pointer"
+            title="Close"
           >
             ✕
           </button>
@@ -142,7 +143,7 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
         )}
 
         {/* Public Share Link Card (Google Drive Style) */}
-        <div className="mt-5 p-4 rounded-2xl bg-slate-950/70 border border-slate-800">
+        <div className="mt-4 sm:mt-5 p-3.5 sm:p-4 rounded-2xl bg-slate-950/70 border border-slate-800">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <span className="text-sm">🌐</span>
@@ -156,7 +157,7 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
             Anyone with this link can view and download this {isFile ? "file" : "folder"} directly without creating an account.
           </p>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <input
               type="text"
               readOnly
@@ -165,7 +166,7 @@ export default function ShareModal({ item, itemType, currentUser, onClose, onSha
             />
             <button
               onClick={copyShareLink}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 flex items-center justify-center gap-1.5 cursor-pointer ${
                 copied
                   ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/30"
                   : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30"

@@ -42,12 +42,12 @@ function Dashboard({ onLogout }) {
 
   const fileInputRef = useRef(null);
 
-  // User Profile Popup States (Header Left & Sidebar Left)
-  const [headerUserMenuOpen, setHeaderUserMenuOpen] = useState(false);
-  const [sidebarUserMenuOpen, setSidebarUserMenuOpen] = useState(false);
+  // User Profile States
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [refreshingVault, setRefreshingVault] = useState(false);
-  const headerUserMenuRef = useRef(null);
-  const sidebarUserMenuRef = useRef(null);
+  const userMenuRef = useRef(null);
+  const mobileMenuRef = useRef(null);
 
   const user = JSON.parse(
     localStorage.getItem("securestash_user") || "null"
@@ -157,17 +157,17 @@ function Dashboard({ onLogout }) {
   // Click outside to close user menus & Escape key support
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (headerUserMenuRef.current && !headerUserMenuRef.current.contains(e.target)) {
-        setHeaderUserMenuOpen(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
       }
-      if (sidebarUserMenuRef.current && !sidebarUserMenuRef.current.contains(e.target)) {
-        setSidebarUserMenuOpen(false);
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target)) {
+        setMobileMenuOpen(false);
       }
     };
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        setHeaderUserMenuOpen(false);
-        setSidebarUserMenuOpen(false);
+        setUserMenuOpen(false);
+        setMobileMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -835,151 +835,30 @@ function Dashboard({ onLogout }) {
             </p>
           </div>
 
-          {/* User Profile Card (Sidebar Left) - ONLY User Name shown here */}
-          <div className="relative" ref={sidebarUserMenuRef}>
-            <button
-              onClick={() => setSidebarUserMenuOpen((prev) => !prev)}
-              className={`w-full flex items-center justify-between p-2.5 rounded-xl transition border text-left cursor-pointer ${
-                sidebarUserMenuOpen
-                  ? "bg-slate-800 border-blue-500/50 shadow-md shadow-blue-500/10 ring-1 ring-blue-500/30"
-                  : "bg-slate-900/80 border-slate-800 hover:bg-slate-800/90 hover:border-slate-700"
-              }`}
-              title="Click to open user menu"
-            >
+          {/* User Profile Card (Sidebar Desktop) */}
+          <div className="bg-slate-900/80 rounded-2xl p-3 border border-slate-800">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm">
                   {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
                 </div>
-                {/* Only Name show of user in left */}
-                <span className="text-xs font-semibold text-slate-200 truncate">
-                  {user?.name || "Secure User"}
-                </span>
-              </div>
-              <span className="text-slate-400 text-[10px] pl-1 shrink-0">
-                {sidebarUserMenuOpen ? "▼" : "▲"}
-              </span>
-            </button>
-
-            {/* Left Popup Menu */}
-            {sidebarUserMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-2 w-72 bg-slate-900/98 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl p-4 text-white z-50 modal-3d">
-                {/* User Info Header */}
-                <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-md shadow-blue-500/20 shrink-0">
-                    {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-white truncate">
-                      {user?.name || "Secure User"}
-                    </p>
-                    <p className="text-xs text-slate-400 truncate">
-                      {user?.email || "Encrypted Account"}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      <span className="text-[10px] font-medium text-emerald-400">Authenticated Session</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Vault & Security Features */}
-                <div className="py-2.5 border-b border-slate-800 space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between text-slate-300">
-                    <span className="flex items-center gap-1.5 text-slate-400">
-                      <span>🛡️</span> Security
-                    </span>
-                    <span className="font-semibold text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                      AES-256-GCM
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-slate-300">
-                    <span className="flex items-center gap-1.5 text-slate-400">
-                      <span>📦</span> Vault Items
-                    </span>
-                    <span className="font-medium text-slate-200">
-                      {files.length} files &bull; {folders.length} folders
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-slate-300">
-                    <span className="flex items-center gap-1.5 text-slate-400">
-                      <span>📊</span> Storage
-                    </span>
-                    <span className="font-medium text-slate-200">
-                      {usedMB > 1024 ? `${usedGB} GB` : `${usedMB} MB`} / 10 GB
-                    </span>
-                  </div>
-                </div>
-
-                {/* Interactive Features */}
-                <div className="py-2 space-y-1">
-                  <button
-                    onClick={handleManualRefresh}
-                    disabled={refreshingVault}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className={refreshingVault ? "animate-spin" : ""}>🔄</span> Refresh Vault
-                    </span>
-                    {refreshingVault && (
-                      <span className="text-[10px] text-blue-400">Syncing...</span>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveMenu("Shared With Me");
-                      setCurrentFolder(null);
-                      setSharedFolderView(null);
-                      setSidebarUserMenuOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>🤝</span> Shared With Me
-                    </span>
-                    {(sharedFiles.length + sharedFolders.length) > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500 text-white font-bold">
-                        {sharedFiles.length + sharedFolders.length}
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveMenu("Starred");
-                      setCurrentFolder(null);
-                      setSharedFolderView(null);
-                      setSidebarUserMenuOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>⭐</span> Starred Files
-                    </span>
-                    {files.filter((f) => f.isStarred).length > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 font-bold border border-amber-500/40">
-                        {files.filter((f) => f.isStarred).length}
-                      </span>
-                    )}
-                  </button>
-                </div>
-
-                {/* Logout Button */}
-                <div className="pt-2 border-t border-slate-800">
-                  <button
-                    onClick={() => {
-                      setSidebarUserMenuOpen(false);
-                      onLogout();
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/20 text-xs font-semibold transition duration-150 cursor-pointer"
-                  >
-                    <span>🚪</span> Sign Out
-                  </button>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-200 truncate">
+                    {user?.name || "Secure User"}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {user?.email || "Encrypted Account"}
+                  </p>
                 </div>
               </div>
-            )}
+              <button
+                onClick={onLogout}
+                className="w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/20 text-xs flex items-center justify-center transition cursor-pointer shrink-0"
+                title="Sign Out"
+              >
+                🚪
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -987,157 +866,24 @@ function Dashboard({ onLogout }) {
       {/* ================= MAIN AREA ================= */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* ================= TOP NAVBAR ================= */}
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shrink-0 gap-4">
-          {/* Left Side: User Profile Trigger & Search Bar */}
-          <div className="flex items-center gap-3 min-w-0 flex-1 max-w-2xl">
-            {/* User Profile Button on Left - ONLY Name Shown */}
-            <div className="relative shrink-0" ref={headerUserMenuRef}>
-              <button
-                onClick={() => setHeaderUserMenuOpen((prev) => !prev)}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition border text-left cursor-pointer ${
-                  headerUserMenuOpen
-                    ? "bg-slate-100 border-blue-500 shadow-sm ring-2 ring-blue-500/20"
-                    : "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
-                }`}
-                title="Account and Vault Options"
-              >
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
-                </div>
-                {/* Only Name show of user in left */}
-                <span className="text-xs font-bold text-slate-800 max-w-[130px] truncate hidden sm:inline-block">
-                  {user?.name || "Secure User"}
+        <header className="bg-white border-b border-slate-200 shrink-0">
+          <div className="h-16 md:h-20 flex items-center justify-between px-4 md:px-8 gap-3">
+            {/* Mobile Brand Logo (Visible only on Mobile) */}
+            <div className="flex items-center gap-2.5 md:hidden">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
+                <span className="text-lg">🔐</span>
+              </div>
+              <div>
+                <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none">SecureStash</h1>
+                <span className="text-[10px] font-medium text-emerald-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Encrypted
                 </span>
-                <span className="text-slate-400 text-[10px] pl-0.5">
-                  {headerUserMenuOpen ? "▲" : "▼"}
-                </span>
-              </button>
-
-              {/* Left Popup Menu */}
-              {headerUserMenuOpen && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-slate-900/98 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl p-4 text-white z-[999] modal-3d">
-                  {/* User Info Header */}
-                  <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-md shadow-blue-500/20 shrink-0">
-                      {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-white truncate">
-                        {user?.name || "Secure User"}
-                      </p>
-                      <p className="text-xs text-slate-400 truncate">
-                        {user?.email || "Encrypted Account"}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span className="text-[10px] font-medium text-emerald-400">Authenticated Session</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Vault & Security Features */}
-                  <div className="py-2.5 border-b border-slate-800 space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between text-slate-300">
-                      <span className="flex items-center gap-1.5 text-slate-400">
-                        <span>🛡️</span> Security
-                      </span>
-                      <span className="font-semibold text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                        AES-256-GCM
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-slate-300">
-                      <span className="flex items-center gap-1.5 text-slate-400">
-                        <span>📦</span> Vault Items
-                      </span>
-                      <span className="font-medium text-slate-200">
-                        {files.length} files &bull; {folders.length} folders
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-slate-300">
-                      <span className="flex items-center gap-1.5 text-slate-400">
-                        <span>📊</span> Storage
-                      </span>
-                      <span className="font-medium text-slate-200">
-                        {usedMB > 1024 ? `${usedGB} GB` : `${usedMB} MB`} / 10 GB
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Interactive Features */}
-                  <div className="py-2 space-y-1">
-                    <button
-                      onClick={handleManualRefresh}
-                      disabled={refreshingVault}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className={refreshingVault ? "animate-spin" : ""}>🔄</span> Refresh Vault
-                      </span>
-                      {refreshingVault && (
-                        <span className="text-[10px] text-blue-400">Syncing...</span>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setActiveMenu("Shared With Me");
-                        setCurrentFolder(null);
-                        setSharedFolderView(null);
-                        setHeaderUserMenuOpen(false);
-                      }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span>🤝</span> Shared With Me
-                      </span>
-                      {(sharedFiles.length + sharedFolders.length) > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500 text-white font-bold">
-                          {sharedFiles.length + sharedFolders.length}
-                        </span>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setActiveMenu("Starred");
-                        setCurrentFolder(null);
-                        setSharedFolderView(null);
-                        setHeaderUserMenuOpen(false);
-                      }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span>⭐</span> Starred Files
-                      </span>
-                      {files.filter((f) => f.isStarred).length > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 font-bold border border-amber-500/40">
-                          {files.filter((f) => f.isStarred).length}
-                        </span>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Logout Button */}
-                  <div className="pt-2 border-t border-slate-800">
-                    <button
-                      onClick={() => {
-                        setHeaderUserMenuOpen(false);
-                        onLogout();
-                      }}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/20 text-xs font-semibold transition duration-150 cursor-pointer"
-                    >
-                      <span>🚪</span> Sign Out
-                    </button>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
 
-            {/* Search */}
-            <div className="flex-1 min-w-[160px]">
-              <div className="relative">
+            {/* Desktop Search Bar (Hidden on Mobile, placed on Left/Center on Desktop) */}
+            <div className="hidden md:flex flex-1 max-w-md">
+              <div className="relative w-full">
                 <span className="absolute left-3.5 top-2.5 text-slate-400 text-sm">🔍</span>
                 <input
                   type="text"
@@ -1156,35 +902,209 @@ function Dashboard({ onLogout }) {
                 )}
               </div>
             </div>
+
+            {/* Right Side: View Mode Toggle & User Profile Dropdown (TOP RIGHT) */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {/* Storage Info Badge (Desktop) */}
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
+                <span>📊</span>
+                <span className="font-semibold text-slate-800">{usedMB > 1024 ? `${usedGB} GB` : `${usedMB} MB`}</span>
+                <span className="text-slate-400">/ 10 GB</span>
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    viewMode === "list" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                  title="List View"
+                >
+                  ☰
+                </button>
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    viewMode === "grid" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                  title="Grid View"
+                >
+                  ▦
+                </button>
+              </div>
+
+              {/* User Account / Profile Menu in TOP RIGHT */}
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenuOpen((prev) => !prev)}
+                  className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl transition border text-left cursor-pointer ${
+                    userMenuOpen
+                      ? "bg-slate-100 border-blue-500 shadow-sm ring-2 ring-blue-500/20"
+                      : "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+                  }`}
+                  title="Account and Vault Options"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 max-w-[120px] truncate hidden sm:inline-block">
+                    {user?.name || "Secure User"}
+                  </span>
+                  <span className="text-slate-400 text-[10px] pl-0.5">
+                    {userMenuOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {/* Top-Right Dropdown Popup Menu */}
+                {userMenuOpen && (
+                  <div className="absolute top-full right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-24px)] bg-slate-900/98 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl p-4 text-white z-50 modal-3d animate-fade-in">
+                    {/* User Info Header */}
+                    <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-md shadow-blue-500/20 shrink-0">
+                        {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-white truncate">
+                          {user?.name || "Secure User"}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">
+                          {user?.email || "Encrypted Account"}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          <span className="text-[10px] font-medium text-emerald-400">Authenticated Session</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vault & Security Features */}
+                    <div className="py-2.5 border-b border-slate-800 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span className="flex items-center gap-1.5 text-slate-400">
+                          <span>🛡️</span> Security
+                        </span>
+                        <span className="font-semibold text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                          AES-256-GCM
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span className="flex items-center gap-1.5 text-slate-400">
+                          <span>📦</span> Vault Items
+                        </span>
+                        <span className="font-medium text-slate-200">
+                          {files.length} files &bull; {folders.length} folders
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span className="flex items-center gap-1.5 text-slate-400">
+                          <span>📊</span> Storage
+                        </span>
+                        <span className="font-medium text-slate-200">
+                          {usedMB > 1024 ? `${usedGB} GB` : `${usedMB} MB`} / 10 GB
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Interactive Features */}
+                    <div className="py-2 space-y-1">
+                      <button
+                        onClick={handleManualRefresh}
+                        disabled={refreshingVault}
+                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className={refreshingVault ? "animate-spin" : ""}>🔄</span> Refresh Vault
+                        </span>
+                        {refreshingVault && (
+                          <span className="text-[10px] text-blue-400">Syncing...</span>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setActiveMenu("Shared With Me");
+                          setCurrentFolder(null);
+                          setSharedFolderView(null);
+                          setUserMenuOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>🤝</span> Shared With Me
+                        </span>
+                        {(sharedFiles.length + sharedFolders.length) > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500 text-white font-bold">
+                            {sharedFiles.length + sharedFolders.length}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setActiveMenu("Starred");
+                          setCurrentFolder(null);
+                          setSharedFolderView(null);
+                          setUserMenuOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>⭐</span> Starred Files
+                        </span>
+                        {files.filter((f) => f.isStarred).length > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 font-bold border border-amber-500/40">
+                            {files.filter((f) => f.isStarred).length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Logout Button */}
+                    <div className="pt-2 border-t border-slate-800">
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          onLogout();
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/20 text-xs font-semibold transition duration-150 cursor-pointer"
+                      >
+                        <span>🚪</span> Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Right Side: View Mode Toggle Only (NO Login Details in Top Right) */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                  viewMode === "list" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
-                }`}
-                title="List View"
-              >
-                ☰
-              </button>
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                  viewMode === "grid" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
-                }`}
-                title="Grid View"
-              >
-                ▦
-              </button>
+          {/* Mobile Search Bar Row (Visible only on Mobile) */}
+          <div className="md:hidden px-4 pb-3">
+            <div className="relative w-full">
+              <span className="absolute left-3.5 top-2.5 text-slate-400 text-sm">🔍</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search files and folders..."
+                className="w-full rounded-xl bg-slate-100 pl-10 pr-4 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition border border-transparent focus:border-blue-300 text-xs"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
         </header>
 
         {/* ================= CONTENT SECTION ================= */}
-        <section className="flex-1 p-4 md:p-8 overflow-y-auto">
+        <section className="flex-1 p-3 sm:p-6 md:p-8 pb-28 md:pb-8 overflow-y-auto">
           {/* BREADCRUMBS BAR (Google Drive / Notion style) */}
           <div className="flex items-center gap-2 text-xs text-slate-500 mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
             <button
@@ -1382,13 +1302,13 @@ function Dashboard({ onLogout }) {
             </div>
 
             {/* Buttons */}
-            <div className="flex flex-wrap gap-2.5">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-2.5 w-full sm:w-auto">
               <button
                 onClick={() => fetchData()}
-                className="btn-3d-secondary rounded-xl px-3.5 py-2.5 font-semibold text-sm flex items-center gap-1.5"
+                className="btn-3d-secondary rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5"
                 title="Refresh Stash"
               >
-                <span>🔄</span>
+                <span>🔄</span> Refresh
               </button>
 
               <button
@@ -1397,7 +1317,7 @@ function Dashboard({ onLogout }) {
                   setFolderName("");
                   setShowFolderModal(true);
                 }}
-                className="btn-3d-secondary rounded-xl px-4 py-2.5 font-semibold text-sm flex items-center gap-2"
+                className="btn-3d-secondary rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2"
               >
                 <span>+</span> New Folder
               </button>
@@ -1408,7 +1328,7 @@ function Dashboard({ onLogout }) {
                   setUrlInput("");
                   setShowUrlModal(true);
                 }}
-                className="btn-3d-secondary rounded-xl px-4 py-2.5 font-semibold text-sm flex items-center gap-2 text-blue-700 border-blue-200"
+                className="btn-3d-secondary rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 text-blue-700 border-blue-200"
               >
                 <span>🌐</span> From URL
               </button>
@@ -1416,7 +1336,7 @@ function Dashboard({ onLogout }) {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingFile}
-                className="btn-3d-primary rounded-xl px-5 py-2.5 font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
+                className="btn-3d-primary rounded-xl px-3 py-2 sm:px-5 sm:py-2.5 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <span>{uploadingFile ? "⏳" : "⬆"}</span>
                 <span>{uploadingFile ? "Uploading..." : "Upload File"}</span>
@@ -1664,24 +1584,25 @@ function Dashboard({ onLogout }) {
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-3xl group-hover:scale-110 transition">📁</span>
-                          <div className="flex items-center gap-1">
-                            {/* Share Folder Button */}
+                          <div className="flex items-center gap-1.5">
+                            {/* Prominent Share Folder Button */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setShareItem(folder);
                                 setShareItemType("folder");
                               }}
-                              className="w-7 h-7 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition text-xs"
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition shadow-sm"
                               title="Share Folder Collaboratively"
                             >
-                              👥
+                              <span>🔗</span>
+                              <span>Share</span>
                             </button>
 
                             {/* Delete Folder Button */}
                             <button
                               onClick={(e) => deleteFolder(folder, e)}
-                              className="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition text-xs opacity-0 group-hover:opacity-100"
+                              className="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition text-xs opacity-90 sm:opacity-0 group-hover:opacity-100"
                               title="Delete folder"
                             >
                               🗑️
@@ -1767,11 +1688,11 @@ function Dashboard({ onLogout }) {
                     <div>
                       <div className="flex items-start justify-between">
                         <span className="text-3xl">{getFileIcon(file)}</span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           {/* Star Toggle */}
                           <button
                             onClick={(e) => toggleStar(file, e)}
-                            className="w-7 h-7 rounded-lg text-xs hover:bg-amber-50 flex items-center justify-center transition"
+                            className="w-8 h-8 rounded-xl text-xs hover:bg-amber-50 flex items-center justify-center transition border border-transparent hover:border-amber-200"
                             title={file.isStarred ? "Unstar" : "Star"}
                           >
                             {file.isStarred ? "⭐" : "☆"}
@@ -1783,10 +1704,10 @@ function Dashboard({ onLogout }) {
                                 setShareItem(file);
                                 setShareItemType("file");
                               }}
-                              className="w-7 h-7 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition text-xs"
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition shadow-sm"
                               title="Share File"
                             >
-                              👥
+                              <span>🔗</span> Share
                             </button>
                           )}
                         </div>
@@ -1814,29 +1735,34 @@ function Dashboard({ onLogout }) {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
+                    {/* Responsive Action Grid (2 columns on mobile, never cramped/overflowed) */}
+                    <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100">
                       <button
                         onClick={() => openFile(file)}
-                        className="flex-1 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 text-center"
+                        className="w-full py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 text-center flex items-center justify-center gap-1 transition"
                       >
-                        Open
+                        <span>👁️</span> Open
                       </button>
-                      {!file.sharedBy && !file.isSentShare && (
+
+                      {!file.sharedBy ? (
                         <button
                           onClick={() => {
                             setShareItem(file);
                             setShareItemType("file");
                           }}
-                          className="flex-1 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 text-center flex items-center justify-center gap-1"
-                          title="Send or Share file"
+                          className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold text-center flex items-center justify-center gap-1.5 transition shadow-sm shadow-indigo-600/20"
+                          title="Share file"
                         >
-                          <span>👥</span> Send
+                          <span>🔗</span> Share
                         </button>
+                      ) : (
+                        <div />
                       )}
+
                       {file.sharePermission === "view" ? (
                         <button
                           disabled
-                          className="flex-1 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-xs font-semibold text-center cursor-not-allowed"
+                          className="col-span-1 py-2 rounded-xl bg-slate-100 text-slate-400 text-xs font-semibold text-center cursor-not-allowed"
                           title="View-only permission (Download disabled)"
                         >
                           🔒 View Only
@@ -1845,16 +1771,16 @@ function Dashboard({ onLogout }) {
                         <button
                           onClick={() => downloadFile(file)}
                           disabled={actionLoadingId === file._id}
-                          className="flex-1 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 text-center disabled:opacity-50"
+                          className="col-span-1 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 text-center flex items-center justify-center gap-1 transition disabled:opacity-50"
                         >
-                          {actionLoadingId === file._id ? "⏳" : "Download"}
+                          {actionLoadingId === file._id ? "⏳" : "⬇️ Download"}
                         </button>
                       )}
-                      {/* Delete / Remove Button */}
+
                       <button
                         onClick={() => deleteFile(file)}
                         disabled={actionLoadingId === file._id}
-                        className="w-8 py-1.5 rounded-lg text-red-500 hover:bg-red-50 text-xs text-center transition disabled:opacity-50"
+                        className="col-span-1 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold text-center flex items-center justify-center gap-1 transition disabled:opacity-50"
                         title={
                           file.isSharedWithMe || file.sharedBy
                             ? "Remove from Shared With Me"
@@ -1863,7 +1789,7 @@ function Dashboard({ onLogout }) {
                             : "Delete file"
                         }
                       >
-                        {actionLoadingId === file._id ? "⏳" : "🗑️"}
+                        {actionLoadingId === file._id ? "⏳" : "🗑️ Delete"}
                       </button>
                     </div>
                   </div>
@@ -1923,34 +1849,34 @@ function Dashboard({ onLogout }) {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end sm:justify-start pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                         {/* Star Button */}
                         <button
                           onClick={(e) => toggleStar(file, e)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition text-sm"
+                          className="p-2 rounded-xl text-slate-400 hover:text-amber-500 hover:bg-amber-50 border border-slate-200 sm:border-transparent transition text-sm"
                           title={file.isStarred ? "Unstar file" : "Star file"}
                         >
                           {file.isStarred ? "⭐" : "☆"}
                         </button>
 
                         {/* Share Button (Only if owner) */}
-                        {!file.sharedBy && !file.isSentShare && (
+                        {!file.sharedBy && (
                           <button
                             onClick={() => {
                               setShareItem(file);
                               setShareItemType("file");
                             }}
-                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition flex items-center gap-1"
-                            title="Share file collaboratively"
+                            className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm shadow-indigo-600/20"
+                            title="Share file"
                           >
-                            <span>👥</span> Send / Share
+                            <span>🔗</span> Share
                           </button>
                         )}
 
                         {/* Preview Button */}
                         <button
                           onClick={() => openFile(file)}
-                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition flex items-center gap-1"
+                          className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition flex items-center gap-1"
                           title="Open / Preview inline"
                         >
                           <span>👁️</span> Open
@@ -1960,7 +1886,7 @@ function Dashboard({ onLogout }) {
                         {file.sharePermission === "view" ? (
                           <button
                             disabled
-                            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100 text-xs font-semibold text-slate-400 cursor-not-allowed flex items-center gap-1"
+                            className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-xs font-semibold text-slate-400 cursor-not-allowed flex items-center gap-1"
                             title="View-only permission (Download disabled)"
                           >
                             <span>🔒</span> View Only
@@ -1969,14 +1895,10 @@ function Dashboard({ onLogout }) {
                           <button
                             onClick={() => downloadFile(file)}
                             disabled={actionLoadingId === file._id}
-                            className="px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition flex items-center gap-1 disabled:opacity-50"
+                            className="px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition flex items-center gap-1 disabled:opacity-50"
                             title="Download file"
                           >
-                            {actionLoadingId === file._id ? (
-                              <span>⏳</span>
-                            ) : (
-                              <span>⬇️</span>
-                            )}
+                            <span>{actionLoadingId === file._id ? "⏳" : "⬇️"}</span>
                             Download
                           </button>
                         )}
@@ -1985,7 +1907,7 @@ function Dashboard({ onLogout }) {
                         <button
                           onClick={() => deleteFile(file)}
                           disabled={actionLoadingId === file._id}
-                          className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-xs font-semibold text-red-600 hover:bg-red-100 transition flex items-center gap-1.5 disabled:opacity-50"
+                          className="px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-semibold text-red-600 hover:bg-red-100 transition flex items-center gap-1.5 disabled:opacity-50"
                           title={
                             file.isSharedWithMe || file.sharedBy
                               ? "Remove from Shared With Me"
@@ -2167,6 +2089,90 @@ function Dashboard({ onLogout }) {
           </div>
         </div>
       )}
+
+      {/* ================= MOBILE BOTTOM NAVIGATION BAR ================= */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-slate-950/95 backdrop-blur-xl border-t border-slate-800 flex items-center justify-around py-2 px-1 shadow-2xl safe-area-bottom">
+        <button
+          onClick={() => {
+            setActiveMenu("My Files");
+            setCurrentFolder(null);
+            setSharedFolderView(null);
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition cursor-pointer ${
+            activeMenu === "My Files" ? "text-blue-400 font-bold" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <span className="text-lg">📁</span>
+          <span className="text-[10px] mt-0.5">Files</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveMenu("Shared With Me");
+            setCurrentFolder(null);
+            setSharedFolderView(null);
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition relative cursor-pointer ${
+            activeMenu === "Shared With Me" ? "text-blue-400 font-bold" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <span className="text-lg">🤝</span>
+          <span className="text-[10px] mt-0.5">Shared</span>
+          {(sharedFiles.length + sharedFolders.length) > 0 && (
+            <span className="absolute top-0 right-1 min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-white text-[9px] font-bold flex items-center justify-center">
+              {sharedFiles.length + sharedFolders.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveMenu("Sent Files");
+            setCurrentFolder(null);
+            setSharedFolderView(null);
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition relative cursor-pointer ${
+            activeMenu === "Sent Files" ? "text-blue-400 font-bold" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <span className="text-lg">📤</span>
+          <span className="text-[10px] mt-0.5">Sent</span>
+          {sentShares.length > 0 && (
+            <span className="absolute top-0 right-1 min-w-[16px] h-4 px-1 rounded-full bg-indigo-500 text-white text-[9px] font-bold flex items-center justify-center">
+              {sentShares.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveMenu("Starred");
+            setCurrentFolder(null);
+            setSharedFolderView(null);
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition relative cursor-pointer ${
+            activeMenu === "Starred" ? "text-blue-400 font-bold" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <span className="text-lg">⭐</span>
+          <span className="text-[10px] mt-0.5">Starred</span>
+          {files.filter((f) => f.isStarred).length > 0 && (
+            <span className="absolute top-0 right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+              {files.filter((f) => f.isStarred).length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setUserMenuOpen((prev) => !prev)}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition cursor-pointer ${
+            userMenuOpen ? "text-blue-400 font-bold" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <span className="text-lg">👤</span>
+          <span className="text-[10px] mt-0.5">Account</span>
+        </button>
+      </div>
     </div>
   );
 }
