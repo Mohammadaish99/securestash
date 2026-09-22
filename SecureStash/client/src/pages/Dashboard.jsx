@@ -42,6 +42,13 @@ function Dashboard({ onLogout }) {
 
   const fileInputRef = useRef(null);
 
+  // Left Sidebar User Popup Menu
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [refreshingVault, setRefreshingVault] = useState(false);
+  const userMenuRef = useRef(null);
+  const mobileMenuRef = useRef(null);
+
   const user = JSON.parse(
     localStorage.getItem("securestash_user") || "null"
   );
@@ -146,6 +153,41 @@ function Dashboard({ onLogout }) {
       return () => clearTimeout(timer);
     }
   }, [success]);
+
+  // Click outside to close user menus & Escape key support
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setUserMenuOpen(false);
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  const handleManualRefresh = async () => {
+    try {
+      setRefreshingVault(true);
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimeout(() => setRefreshingVault(false), 500);
+    }
+  };
 
   // ===============================
   // FILE INPUT CHANGE
@@ -767,8 +809,9 @@ function Dashboard({ onLogout }) {
           </nav>
         </div>
 
-        {/* Dynamic Storage Bar */}
-        <div className="p-4">
+        {/* Dynamic Storage Bar & Left User Profile */}
+        <div className="p-4 space-y-3 relative" ref={userMenuRef}>
+          {/* Dynamic Storage Bar */}
           <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Vault Storage</p>
@@ -790,6 +833,153 @@ function Dashboard({ onLogout }) {
             <p className="text-[11px] text-slate-400 mt-2">
               Free plan &bull; {files.length} {files.length === 1 ? "file" : "files"} stored
             </p>
+          </div>
+
+          {/* User Profile Card (Sidebar Left) - ONLY User Name shown here */}
+          <div className="relative">
+            <button
+              onClick={() => setUserMenuOpen((prev) => !prev)}
+              className={`w-full flex items-center justify-between p-2.5 rounded-xl transition border text-left cursor-pointer ${
+                userMenuOpen
+                  ? "bg-slate-800 border-blue-500/50 shadow-md shadow-blue-500/10 ring-1 ring-blue-500/30"
+                  : "bg-slate-900/80 border-slate-800 hover:bg-slate-800/90 hover:border-slate-700"
+              }`}
+              title="Click to open user menu"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                </div>
+                {/* Only Name show of user in left */}
+                <span className="text-xs font-semibold text-slate-200 truncate">
+                  {user?.name || "Secure User"}
+                </span>
+              </div>
+              <span className="text-slate-400 text-[10px] pl-1 shrink-0">
+                {userMenuOpen ? "▼" : "▲"}
+              </span>
+            </button>
+
+            {/* Left Popup Menu */}
+            {userMenuOpen && (
+              <div className="absolute bottom-full left-0 mb-2 w-72 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl p-4 text-white z-50 modal-3d">
+                {/* User Info Header */}
+                <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-md shadow-blue-500/20 shrink-0">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-white truncate">
+                      {user?.name || "Secure User"}
+                    </p>
+                    <p className="text-xs text-slate-400 truncate">
+                      {user?.email || "Encrypted Account"}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span className="text-[10px] font-medium text-emerald-400">Authenticated Session</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vault & Security Features */}
+                <div className="py-2.5 border-b border-slate-800 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="flex items-center gap-1.5 text-slate-400">
+                      <span>🛡️</span> Security
+                    </span>
+                    <span className="font-semibold text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                      AES-256-GCM
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="flex items-center gap-1.5 text-slate-400">
+                      <span>📦</span> Vault Items
+                    </span>
+                    <span className="font-medium text-slate-200">
+                      {files.length} files &bull; {folders.length} folders
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="flex items-center gap-1.5 text-slate-400">
+                      <span>📊</span> Storage
+                    </span>
+                    <span className="font-medium text-slate-200">
+                      {usedMB > 1024 ? `${usedGB} GB` : `${usedMB} MB`} / 10 GB
+                    </span>
+                  </div>
+                </div>
+
+                {/* Interactive Features */}
+                <div className="py-2 space-y-1">
+                  <button
+                    onClick={handleManualRefresh}
+                    disabled={refreshingVault}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className={refreshingVault ? "animate-spin" : ""}>🔄</span> Refresh Vault
+                    </span>
+                    {refreshingVault && (
+                      <span className="text-[10px] text-blue-400">Syncing...</span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveMenu("Shared With Me");
+                      setCurrentFolder(null);
+                      setSharedFolderView(null);
+                      setUserMenuOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>🤝</span> Shared With Me
+                    </span>
+                    {(sharedFiles.length + sharedFolders.length) > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500 text-white font-bold">
+                        {sharedFiles.length + sharedFolders.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveMenu("Starred");
+                      setCurrentFolder(null);
+                      setSharedFolderView(null);
+                      setUserMenuOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>⭐</span> Starred Files
+                    </span>
+                    {files.filter((f) => f.isStarred).length > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 font-bold border border-amber-500/40">
+                        {files.filter((f) => f.isStarred).length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Logout Button */}
+                <div className="pt-2 border-t border-slate-800">
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      onLogout();
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/20 text-xs font-semibold transition duration-150 cursor-pointer"
+                  >
+                    <span>🚪</span> Sign Out
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </aside>
@@ -820,13 +1010,13 @@ function Dashboard({ onLogout }) {
             </div>
           </div>
 
-          {/* User Profile & Actions */}
+          {/* Actions & View Controls */}
           <div className="flex items-center gap-3">
             {/* View Mode Toggle (Grid / List) */}
-            <div className="hidden sm:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
               <button
                 onClick={() => setViewMode("list")}
-                className={`p-1.5 rounded-lg text-xs font-semibold transition ${
+                className={`p-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                   viewMode === "list" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
                 }`}
                 title="List View"
@@ -835,7 +1025,7 @@ function Dashboard({ onLogout }) {
               </button>
               <button
                 onClick={() => setViewMode("grid")}
-                className={`p-1.5 rounded-lg text-xs font-semibold transition ${
+                className={`p-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                   viewMode === "grid" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
                 }`}
                 title="Grid View"
@@ -844,25 +1034,35 @@ function Dashboard({ onLogout }) {
               </button>
             </div>
 
-            <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center shadow-md shadow-blue-500/20">
-                {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-semibold text-slate-800 leading-tight">
-                  {user?.name || "Secure User"}
-                </p>
-                <p className="text-xs text-slate-400 leading-tight">
-                  {user?.email || "Encrypted Account"}
-                </p>
-              </div>
-
+            {/* Mobile-Only Account Menu (hidden on desktop where left sidebar popup is used) */}
+            <div className="relative md:hidden" ref={mobileMenuRef}>
               <button
-                onClick={onLogout}
-                className="ml-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition"
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+                className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center shadow-md shadow-blue-500/20 text-xs cursor-pointer"
+                title="Account Menu"
               >
-                Logout
+                {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
               </button>
+
+              {mobileMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-800 p-3 z-50 modal-3d">
+                  <div className="pb-2 border-b border-slate-800">
+                    <p className="text-xs font-bold text-white truncate">{user?.name || "Secure User"}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{user?.email || "Encrypted Account"}</p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        onLogout();
+                      }}
+                      className="w-full py-1.5 text-xs text-red-400 font-semibold hover:bg-red-500/20 rounded-lg transition cursor-pointer"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
