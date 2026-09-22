@@ -433,38 +433,36 @@ router.post("/send-login-otp", loginLimiter, async (req, res) => {
         }
 
         const cleanEmail = email.toLowerCase().trim();
-        const user = await User.findOne({ email: cleanEmail });
+        let user = await User.findOne({ email: cleanEmail });
 
-        if (!user) {
-            return res.status(404).json({
-                message: "No account found with this email address. Please register first."
-            });
-        }
-
-        // Generate 6-digit code
+        // Generate 6-digit cryptographic OTP
         const code = Math.floor(100000 + crypto.randomInt(0, 900000)).toString();
         const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
+        // Store pending OTP for this specific email (supports both existing and new users!)
         pendingLoginOtps.set(cleanEmail, {
             code,
             expiresAt,
-            userId: user._id
+            userId: user ? user._id : null,
+            isNewUser: !user,
+            email: cleanEmail
         });
 
-        console.log(`⚡ Passwordless Login OTP for ${cleanEmail}: ${code}`);
+        const recipientName = user ? user.name : cleanEmail.split("@")[0];
+        console.log(`⚡ Passwordless OTP for ${cleanEmail} (New User: ${!user}): ${code}`);
 
         // Asynchronous background email dispatch (Zero-Buffering Instant Response)
         sendOtpEmail({
             to: cleanEmail,
             code,
             type: "login",
-            name: user.name
+            name: recipientName
         }).catch((err) => {
             console.error("Background Login OTP error:", err);
         });
 
         res.status(200).json({
-            message: `A 6-digit login code has been sent to your Gmail inbox (${cleanEmail}). Please check your Inbox and Spam folder.`,
+            message: `A 6-digit code has been sent to ${cleanEmail}. Please check your Inbox and Spam folder.`,
             email: cleanEmail
         });
 
@@ -511,7 +509,23 @@ router.post("/verify-login-otp", loginLimiter, async (req, res) => {
             });
         }
 
-        const user = await User.findById(pending.userId);
+        let user = pending.userId ? await User.findById(pending.userId) : null;
+
+        if (!user && pending.isNewUser) {
+            // Automatically create verified account for new user!
+            const rawName = cleanEmail.split("@")[0];
+            const formattedName = rawName.replace(/[._-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+            const randomPassword = crypto.randomBytes(16).toString("hex");
+            const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+            user = await User.create({
+                name: formattedName || "SecureStash User",
+                email: cleanEmail,
+                password: hashedPassword
+            });
+            console.log(`🎉 New user verified & auto-created via OTP: ${cleanEmail}`);
+        }
+
         if (!user) {
             return res.status(404).json({
                 message: "User account not found."

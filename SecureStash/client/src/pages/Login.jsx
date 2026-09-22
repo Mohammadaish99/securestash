@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import API from "../api/api";
 
 function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
@@ -10,10 +10,22 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
   // Passwordless OTP login state
   const [otpStep, setOtpStep] = useState(1); // 1 = Enter email, 2 = Enter code
   const [loginOtp, setLoginOtp] = useState("");
+  const [countdown, setCountdown] = useState(0);
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // 30-Second Resend Countdown Timer
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
 
   // Standard Password Login
   const handlePasswordLogin = async (e) => {
@@ -71,6 +83,7 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
 
       setMessage(res.data.message || "A 6-digit login code has been sent to your Gmail inbox!");
       setOtpStep(2);
+      setCountdown(30);
     } catch (err) {
       console.error("Send login OTP error:", err);
       setError(
@@ -392,6 +405,7 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
                       setOtpStep(1);
                       setError("");
                       setMessage("");
+                      setCountdown(0);
                     }}
                     className="text-xs text-slate-400 hover:text-white transition flex items-center gap-1"
                   >
@@ -400,11 +414,11 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
 
                   <button
                     type="button"
-                    disabled={loading}
+                    disabled={loading || countdown > 0}
                     onClick={handleSendLoginOtp}
-                    className="text-xs text-blue-400 hover:text-blue-300 transition font-medium"
+                    className="text-xs text-blue-400 hover:text-blue-300 transition font-medium disabled:text-slate-500 disabled:cursor-not-allowed"
                   >
-                    Resend Code
+                    {countdown > 0 ? `Resend Code (${countdown}s)` : "Resend Code"}
                   </button>
                 </div>
               </form>
