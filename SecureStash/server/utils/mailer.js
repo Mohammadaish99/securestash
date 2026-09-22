@@ -1,10 +1,12 @@
 const nodemailer = require("nodemailer");
 
+let cachedTransporter = null;
+
 /**
- * Creates and returns a Nodemailer transporter.
- * Supports Gmail SMTP using standard OAuth2 or Google 16-character App Passwords.
+ * Creates and returns a cached Nodemailer transporter with connection pooling.
+ * Supports Gmail SMTP with IPv4 optimization to eliminate buffering and delays.
  */
-function createTransporter() {
+function getTransporter() {
     const user = process.env.EMAIL_USER;
     const pass = process.env.EMAIL_PASS;
 
@@ -12,18 +14,26 @@ function createTransporter() {
         return null;
     }
 
-    return nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        auth: {
-            user: user.trim(),
-            pass: pass.trim().replace(/\s+/g, "") // Remove spaces from 16-character app password if any
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 12000
-    });
+    if (!cachedTransporter) {
+        cachedTransporter = nodemailer.createTransport({
+            service: "gmail",
+            pool: true,
+            maxConnections: 3,
+            maxMessages: 100,
+            rateDelta: 1000,
+            rateLimit: 5,
+            family: 4, // Force IPv4 to eliminate IPv6 DNS lookup delays
+            auth: {
+                user: user.trim(),
+                pass: pass.trim().replace(/\s+/g, "") // Remove spaces from 16-character app password if any
+            },
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 12000
+        });
+    }
+
+    return cachedTransporter;
 }
 
 /**
@@ -35,28 +45,28 @@ function createTransporter() {
  * @param {string} [options.name] - Recipient name
  */
 async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
-    const transporter = createTransporter();
+    const transporter = getTransporter();
 
-    let subject = "SecureStash — Verification Code";
+    let subject = `SecureStash: Your verification code is ${code}`;
     let title = "Verification Code";
     let description = "Please use the one-time code below to complete your verification:";
     let badgeText = "SECURITY VERIFICATION";
     let badgeColor = "#3b82f6";
 
     if (type === "register") {
-        subject = "🔐 SecureStash — Verify Your Email Address";
+        subject = `SecureStash: Your account activation code is ${code}`;
         title = "Welcome to SecureStash";
         description = "Thank you for registering. Use the 6-digit code below to verify your genuine email address and activate your personal vault:";
         badgeText = "NEW ACCOUNT ACTIVATION";
         badgeColor = "#10b981";
     } else if (type === "login") {
-        subject = "⚡ SecureStash — Your One-Time Login Code";
+        subject = `SecureStash: Your login verification code is ${code}`;
         title = "Passwordless Sign-In";
         description = "You requested to log into your SecureStash vault without a password. Use this one-time code to authenticate:";
         badgeText = "ONE-TIME LOGIN (OTP)";
         badgeColor = "#6366f1";
     } else if (type === "reset") {
-        subject = "🔑 SecureStash — Password Recovery Code";
+        subject = `SecureStash: Your password reset code is ${code}`;
         title = "Password Recovery";
         description = "We received a request to reset the password for your SecureStash account. Use the code below to set a new password:";
         badgeText = "PASSWORD RECOVERY";
@@ -115,40 +125,6 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
 </body>
 </html>
 `;
-
-    // Fast-path: If RESEND_API_KEY is configured, send over HTTPS Port 443 (100% works on Render free tier!)
-    if (process.env.RESEND_API_KEY) {
-        try {
-            const res = await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${process.env.RESEND_API_KEY.trim()}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    from: process.env.RESEND_FROM || "SecureStash <onboarding@resend.dev>",
-                    to: [to],
-                    subject,
-                    html
-                })
-            });
-
-            if (res.ok) {
-                const resData = await res.json();
-                console.log(`✅ [RESEND HTTPS SENT] OTP email dispatched to ${to} (ID: ${resData.id})`);
-                return {
-                    sent: true,
-                    messageId: resData.id
-                };
-            } else {
-                const errData = await res.text();
-                console.warn("⚠️ Resend HTTPS API error:", errData);
-            }
-        } catch (resendErr) {
-            console.warn("⚠️ Resend request error:", resendErr.message);
-        }
-    }
-
     if (!transporter) {
         console.warn("\n==================================================");
         console.warn("⚠️  GMAIL SMTP NOT CONFIGURED IN server/.env");
@@ -171,7 +147,12 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
             to,
             subject,
             text: `Hello ${name},\n\nYour SecureStash verification code is: ${code}\n\nThis code will expire in 10 minutes.\nNever share this code with anyone.`,
-            html
+            html,
+            headers: {
+                "X-Priority": "1 (Highest)",
+                "X-MSMail-Priority": "High",
+                "Importance": "High"
+            }
         });
 
         // 12-second timeout safety guard so HTTP routes NEVER hang indefinitely
@@ -187,6 +168,8 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
             messageId: info.messageId
         };
     } catch (error) {
+        // Reset cached transporter in case the socket died
+        cachedTransporter = null;
         console.error(`❌ [GMAIL ERROR / CLOUD BLOCKED] Failed to send email to ${to}:`, error.message);
         console.warn(`📧 [FALLBACK CODE] OTP for ${to}: ${code}`);
         return {

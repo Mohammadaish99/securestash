@@ -149,19 +149,15 @@ router.post("/send-register-otp", registerLimiter, async (req, res) => {
 
         console.log(`📧 Genuine Email Verification OTP for ${cleanEmail}: ${code}`);
 
-        // Send OTP directly to recipient's Gmail inbox
-        const emailResult = await sendOtpEmail({
+        // Asynchronous background email dispatch (Zero-Buffering Instant Response)
+        sendOtpEmail({
             to: cleanEmail,
             code,
             type: "register",
             name: trimmedName
+        }).catch((err) => {
+            console.error("Background Register OTP error:", err);
         });
-
-        if (!emailResult.sent) {
-            return res.status(500).json({
-                message: "Unable to deliver verification code to your Gmail inbox. Please check your email address or try again in a few moments."
-            });
-        }
 
         res.status(200).json({
             message: `A 6-digit verification code has been sent to your Gmail inbox (${cleanEmail}). Please check your Inbox and Spam folder.`,
@@ -457,19 +453,15 @@ router.post("/send-login-otp", loginLimiter, async (req, res) => {
 
         console.log(`⚡ Passwordless Login OTP for ${cleanEmail}: ${code}`);
 
-        // Send real email via Nodemailer
-        const emailResult = await sendOtpEmail({
+        // Asynchronous background email dispatch (Zero-Buffering Instant Response)
+        sendOtpEmail({
             to: cleanEmail,
             code,
             type: "login",
             name: user.name
+        }).catch((err) => {
+            console.error("Background Login OTP error:", err);
         });
-
-        if (!emailResult.sent) {
-            return res.status(500).json({
-                message: "Unable to deliver login code to your Gmail inbox. Please verify your email address or try again in a few moments."
-            });
-        }
 
         res.status(200).json({
             message: `A 6-digit login code has been sent to your Gmail inbox (${cleanEmail}). Please check your Inbox and Spam folder.`,
@@ -596,19 +588,15 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
 
         console.log(`🔑 Password Recovery Code for ${cleanEmail}: ${resetCode}`);
 
-        // Send recovery email via Nodemailer
-        const emailResult = await sendOtpEmail({
+        // Asynchronous background email dispatch (Zero-Buffering Instant Response)
+        sendOtpEmail({
             to: cleanEmail,
             code: resetCode,
             type: "reset",
             name: user.name
+        }).catch((err) => {
+            console.error("Background Password Recovery dispatch error:", err);
         });
-
-        if (!emailResult.sent) {
-            return res.status(500).json({
-                message: "Unable to deliver password recovery code to your Gmail inbox. Please verify your email address or try again in a few moments."
-            });
-        }
 
         res.status(200).json({
             message: "A 6-digit password recovery code has been sent to your Gmail inbox. It expires in 15 minutes."
