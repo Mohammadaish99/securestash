@@ -17,12 +17,7 @@ const getApiBaseUrl = () => {
   if (typeof window !== "undefined" && window.location) {
     const { origin, hostname, port } = window.location;
 
-    // A. Deployed on Vercel (*.vercel.app) -> Connect to live Render backend
-    if (hostname.endsWith("vercel.app") || hostname.includes("vercel")) {
-      return "https://securestash.onrender.com/api";
-    }
-
-    // B. Running on Vite dev server (port 5173)
+    // A. Running on Vite dev server (port 5173)
     if (port === "5173") {
       // If accessed from mobile phone on same Wi-Fi
       if (hostname !== "localhost" && hostname !== "127.0.0.1") {
@@ -31,7 +26,7 @@ const getApiBaseUrl = () => {
       return "http://localhost:5000/api";
     }
 
-    // C. Hosted on Render (*.onrender.com), custom domain, or served directly from Express
+    // B. Hosted on Render (*.onrender.com), custom domain, or served directly from Express
     return `${origin}/api`;
   }
 

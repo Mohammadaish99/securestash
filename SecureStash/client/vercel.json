@@ -1,9 +1,0 @@
-{
-  "redirects": [
-    {
-      "source": "/(.*)",
-      "destination": "https://securestash.onrender.com/$1",
-      "permanent": false
-    }
-  ]
-}

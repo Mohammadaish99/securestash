@@ -9,7 +9,7 @@ The frontend and backend run together under a single domain (`https://securestas
 
 1. **Single URL for Everything**: Both the React client and Express API run on `https://securestash.onrender.com`.
 2. **Zero CORS Errors**: Because frontend and backend share the exact same origin, browser CORS blocks cannot happen.
-3. **No 4.5 MB Serverless Limits**: Unlike Vercel (which caps uploads at 4.5 MB), Render allows direct streaming of files up to 50 MB into MongoDB Atlas GridFS.
+3. **High File Size Capacity**: Render allows direct streaming of files up to 50 MB into MongoDB Atlas GridFS with no serverless timeouts.
 4. **Persistent Cloud Vault**: Files are encrypted with AES-256 and stored in MongoDB Atlas GridFS, surviving container restarts.
 5. **Real-time Email OTPs**: Direct HTTPS delivery via Brevo & Gmail SMTP with zero buffering.
 

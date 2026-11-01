@@ -75,7 +75,7 @@ SecureStash/
 │   │   │   │   └── SharedViewer.jsx   # Public file/folder viewer
 │   │   │   ├── App.jsx             # SPA routing & session manager
 │   │   │   └── main.jsx
-│   │   ├── vercel.json             # Automatic redirect to Render unified app
+│   │   ├── vite.config.js
 │   │   └── package.json
 │   │
 │   └── server/                     # Node.js + Express Backend
@@ -102,7 +102,6 @@ SecureStash/
 ├── otherthings/                    # Project documentation, presentations & offline assets
 ├── DEPLOYMENT_GUIDE.md             # Complete step-by-step cloud hosting guide
 ├── render.yaml                     # 1-Click Render.com deployment blueprint
-├── vercel.json                     # Seamless edge redirect to Render
 └── package.json                    # Root monorepo orchestration
 ```
 

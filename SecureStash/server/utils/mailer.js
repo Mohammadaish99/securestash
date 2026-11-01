@@ -107,7 +107,7 @@ async function sendOtpEmail({ to, code, type, name = "SecureStash User" }) {
     const recipientEmail = String(to).toLowerCase().trim();
     const recipientName = String(name || "SecureStash User").trim();
 
-    // ⚡ INSTANT CLOUD DELIVERY: Brevo HTTPS API (Port 443 — 100% open on Render & Vercel!)
+    // ⚡ INSTANT CLOUD DELIVERY: Brevo HTTPS API (Port 443 — 100% open on Render cloud hosting!)
     if (process.env.BREVO_API_KEY) {
         try {
             const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
