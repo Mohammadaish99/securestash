@@ -1,16 +1,45 @@
-# React + Vite
+# 🎨 SecureStash Client — React 19 Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The client interface for **SecureStash**, built using **React 19**, **Vite**, and **Tailwind CSS**.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## ⚡ Tech Stack
 
-## React Compiler
+- **Framework**: React 19 (SPA)
+- **Bundler**: Vite 8 with HMR
+- **Styling**: Tailwind CSS v4 with custom 3D glassmorphic styling
+- **API Client**: Axios with dynamic runtime base URL resolution and 401 session expiration interceptors
+- **Icons**: Responsive Unicode emojis & embedded SVGs
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## 📁 Key Components & Pages
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- **`src/pages/Dashboard.jsx`**: Main user workspace featuring:
+  - File and folder lists with instant category filtering
+  - In-App File Preview Modal (Photos, PDFs, Video, Audio, Documents)
+  - Star / Favorites toggling
+  - Storage consumption meter
+  - Collaborative sharing triggers
+- **`src/pages/Login.jsx`**: Dual-mode login with standard Password or Passwordless Email OTP.
+- **`src/pages/Register.jsx`**: Account creation with live animated password strength validator.
+- **`src/pages/ForgotPassword.jsx`**: 2-step OTP password recovery flow.
+- **`src/pages/SharedViewer.jsx`**: Public shared file/folder viewer with direct download and preview.
+- **`src/components/ShareModal.jsx`**: Collaborative sharing modal with granular permission controls (`View Only` vs `Download & View`).
+- **`src/components/ErrorBoundary.jsx`**: Application-level error boundary preventing full app crashes.
+
+---
+
+## 🛠️ Development
+
+Run Vite development server:
+```bash
+npm run dev
+```
+
+Build production bundle for deployment:
+```bash
+npm run build
+```
+*(Outputs optimized assets to `dist/` ready to be served by the Express backend)*

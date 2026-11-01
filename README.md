@@ -1,184 +1,194 @@
-# 🔐 SecureStash — A Secure & Collaborative File Storage Platform
+# 🔐 SecureStash — Private, Encrypted & Collaborative Cloud Vault
 
-[![JavaScript](https://img.shields.io/badge/Language-JavaScript-F7DF1E?logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
-[![React](https://img.shields.io/badge/Frontend-React_19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind_CSS-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Live Demo](https://img.shields.io/badge/Live_App-securestash.onrender.com-00C7B7?style=for-the-badge&logo=render&logoColor=white)](https://securestash.onrender.com)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Mohammadaish99%2Fsecurestash-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Mohammadaish99/securestash)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
+
+[![React 19](https://img.shields.io/badge/Frontend-React_19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind_CSS_v4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Node.js](https://img.shields.io/badge/Backend-Node.js-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Framework-Express_4-000000?logo=express&logoColor=white)](https://expressjs.com/)
-[![MongoDB](https://img.shields.io/badge/Database-MongoDB_Atlas-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![JWT](https://img.shields.io/badge/Auth-JWT_Bearer-000000?logo=jsonwebtokens&logoColor=white)](https://jwt.io/)
-[![Postman](https://img.shields.io/badge/API_Testing-Postman_Collection-FF6C37?logo=postman&logoColor=white)](https://www.postman.com/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Express](https://img.shields.io/badge/Framework-Express_5-000000?logo=express&logoColor=white)](https://expressjs.com/)
+[![MongoDB Atlas GridFS](https://img.shields.io/badge/Storage-MongoDB_Atlas_GridFS-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![AES-256](https://img.shields.io/badge/Encryption-AES--256--CBC-E11D48?logo=lock&logoColor=white)](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
 
-> **SecureStash** is a secure, collaborative cloud storage platform that empowers users to upload, organize, preview, and share files and workspaces in a modern digital vault.  
-> **Design Philosophy**: The cryptographic privacy and reliability of **DigiLocker**, the intuitive collaboration and folder management of **Google Drive**, and the aesthetic productivity workflow of **Notion**.
+> **SecureStash** is a secure, collaborative cloud vault that empowers users to upload, preview, organize, and share files and workspaces with end-to-end cloud persistence.  
+> Combines the cryptographic privacy and reliability of **DigiLocker**, the collaborative power of **Google Drive**, and the modern, tactile aesthetic of **Notion**.
 
 ---
 
-## ✨ Key Features
+## 🌟 Live Demo & Deployment
 
-### 🛡️ 1. DigiLocker-Inspired Security & Authentication
-- **Strong Cryptographic Password Policy**: Requires 8+ characters, uppercase, lowercase, numeric digits, and special symbols with live animated strength evaluation.
-- **Bcrypt Salt Hashing**: OWASP-standard salt rounds ensuring high cryptographic defense against rainbow tables and brute force.
-- **Strict Per-User Data Isolation**: Every file and folder is strictly tied to an account ID via Mongoose ObjectId references. Cross-tenant reads and uploads are rejected with `403 Forbidden`.
-- **2-Step Password Recovery**: 6-digit cryptographic verification code expiring in 15 minutes.
-
-### 🤝 2. Google Drive-Style Collaboration
-- **Interactive Share Modal**: Share any file or folder directly with other users via their registered email.
-- **Granular Permissions**: Choose between `View Only` and `Download & View` permissions.
-- **Collaborator Management**: View real-time list of who has access with one-click **Revoke Access** capability.
-- **Shared With Me View**: Dedicated workspace displaying all files and workspaces shared with you by colleagues.
-
-### 📑 3. Notion-Style Aesthetics & Organization
-- **Hierarchical Breadcrumbs**: Clickable folder navigation (`My Stash > Projects > Q3 Reports`).
-- **Category Filter Pills**: Instant one-click filtering by `All Items`, `Documents`, `Images`, `Audio & Video`, and `Archives`.
-- **Starred / Favorites**: Mark important documents with ⭐ for rapid access.
-- **Grid vs. List Views**: Seamlessly switch between detailed table rows and visual card thumbnails.
-- **Web URL Stashing**: Directly download and stash any remote file or image from the internet via URL.
-- **Glassmorphism Theme**: Ambient glowing background gradients, micro-interactions, and dark mode styling.
+- 🌐 **Official Live Web App**: [**https://securestash.onrender.com**](https://securestash.onrender.com)
+- 🚀 **Fullstack Unified Service**: Frontend (React 19) and Backend (Node.js Express) run together under a single domain with zero CORS issues and permanent cloud storage.
 
 ---
 
-## 🏗️ Architecture & Monorepo Structure
+## ✨ Core Features
+
+### 🛡️ 1. Military-Grade Cloud Vault & AES-256 Encryption
+- **AES-256-CBC Encryption at Rest**: Every document, photo, and file is encrypted in-place using cryptographic AES-256 algorithms before persistence.
+- **MongoDB Atlas GridFS Cloud Storage**: Files are permanently preserved in MongoDB Atlas cloud chunks (`vault_uploads`). Uploaded files will **never** disappear when cloud hosting containers restart or sleep.
+- **Direct Access Guard**: Direct storage links (`/uploads`) are strictly blocked. All file access requires authenticated decryption through `/api/files/download` or `/api/files/preview`.
+
+### 📱 2. Mobile In-App File Preview & Media Player
+- **Interactive File Preview Modal**: Open images (PNG, JPG, SVG, WebP), PDFs, audio, video, and documents directly inside the application.
+- **Zero Mobile Popup Blocks**: Eliminates the popup-blocker issues common with mobile browsers (like Instagram WebView or Safari).
+- **Direct Download & Full-Tab Options**: Instant single-click downloads or full-screen viewing tabs.
+
+### 🤝 3. Google Drive-Style Collaboration & Sharing
+- **Collaborative Sharing Modal**: Share files or entire folders with any registered user by email.
+- **Granular Permissions**: Set access to **View Only** or **Download & View**.
+- **Public Share Links**: Generate secure external links (`/#shared-file-...` and `/#shared-folder-...`) for friends and collaborators.
+- **Dedicated Shared Workspaces**: Manage and revoke shared access at any time.
+
+### ⚡ 4. Real-Time OTP Email Verification & Passwordless Sign-In
+- **Instant Email Delivery**: Zero-buffering cloud email dispatch via Brevo HTTPS API and Gmail SMTP.
+- **Passwordless 1-Click Login**: Sign in instantly using a 6-digit cryptographic one-time password (OTP) sent straight to your Gmail.
+- **2-Step Password Recovery**: Secure password reset with timed 15-minute verification codes.
+- **Genuine Email Verification**: Blocks disposable and burner domains via authoritative DNS MX record validation.
+
+### 🎨 5. Notion-Style Aesthetics & Workspace Organization
+- **Hierarchical Breadcrumbs**: Seamless nested folder navigation.
+- **Category Filters**: Rapid one-click filtering for `All`, `Documents`, `Images`, `Media`, and `Archives`.
+- **Favorites & Starred**: Star important documents for instant access.
+- **Upload from URL**: Stash any web image or file directly into your vault by pasting its public link.
+- **Tactile 3D Glassmorphism**: Polished dark-mode UI with ambient gradient glows and micro-animations.
+
+---
+
+## 🏗️ Architecture & Project Structure
 
 ```
 SecureStash/
-├── client/                     # React Frontend (Vite + Tailwind CSS)
-│   ├── src/
-│   │   ├── api/api.js          # Dynamic runtime Axios client & interceptors
-│   │   ├── components/
-│   │   │   └── ShareModal.jsx  # Collaborative sharing dialog
-│   │   ├── pages/
-│   │   │   ├── Dashboard.jsx   # Main workspace (files, folders, stats)
-│   │   │   ├── Login.jsx       # Glassmorphic login with show/hide password
-│   │   │   ├── Register.jsx    # Registration with live security meter
-│   │   │   └── ForgotPassword.jsx # 2-step verification code recovery
-│   │   ├── App.jsx             # SPA routing & session state
-│   │   └── main.jsx
-│   └── package.json
+├── SecureStash/
+│   ├── client/                     # React 19 Frontend (Vite + Tailwind CSS)
+│   │   ├── src/
+│   │   │   ├── api/api.js          # Dynamic API client with auto-session refresh
+│   │   │   ├── components/
+│   │   │   │   ├── ErrorBoundary.jsx # Graceful UI crash protection
+│   │   │   │   └── ShareModal.jsx  # Collaborative sharing modal
+│   │   │   ├── pages/
+│   │   │   │   ├── Dashboard.jsx   # Main vault with In-App Preview Modal
+│   │   │   │   ├── Login.jsx       # Password & Passwordless OTP login
+│   │   │   │   ├── Register.jsx    # User registration with password meter
+│   │   │   │   ├── ForgotPassword.jsx # 2-step OTP password recovery
+│   │   │   │   └── SharedViewer.jsx   # Public file/folder viewer
+│   │   │   ├── App.jsx             # SPA routing & session manager
+│   │   │   └── main.jsx
+│   │   ├── vercel.json             # Automatic redirect to Render unified app
+│   │   └── package.json
+│   │
+│   └── server/                     # Node.js + Express Backend
+│       ├── config/db.js            # MongoDB Atlas connection & auto-reconnect
+│       ├── middleware/
+│       │   └── authMiddleware.js   # JWT authentication verification
+│       ├── models/
+│       │   ├── User.js             # User accounts & recovery codes
+│       │   ├── File.js             # File metadata & folder references
+│       │   ├── Folder.js           # Folder hierarchy
+│       │   └── Share.js            # Collaborative permissions schema
+│       ├── routes/
+│       │   ├── authRoutes.js       # Register, login, OTP dispatch & verification
+│       │   ├── fileRoutes.js       # GridFS upload, download, preview, star, delete
+│       │   ├── folderRoutes.js     # Folder CRUD operations
+│       │   └── shareRoutes.js      # Public & collaborative file sharing
+│       ├── utils/
+│       │   ├── encryption.js       # AES-256 buffer & in-place encryption
+│       │   ├── gridfs.js           # MongoDB Atlas GridFS cloud persistence engine
+│       │   ├── mailer.js           # Brevo HTTPS & Gmail SMTP email dispatch
+│       │   └── emailVerifier.js    # Disposable filter & DNS MX validation
+│       └── server.js               # Unified server (serves React SPA & API)
 │
-├── server/                     # Node.js + Express Backend
-│   ├── config/db.js            # MongoDB Atlas connection
-│   ├── middleware/
-│   │   └── authMiddleware.js   # JWT authentication verification
-│   ├── models/
-│   │   ├── User.js             # User credentials & recovery codes
-│   │   ├── File.js             # Metadata, sizes, mime types, stars
-│   │   ├── Folder.js           # Workspace hierarchy
-│   │   └── Share.js            # Collaboration & permissions schema
-│   ├── routes/
-│   │   ├── authRoutes.js       # Register, login, recovery
-│   │   ├── fileRoutes.js       # Upload, download, preview, star, delete
-│   │   ├── folderRoutes.js     # Create, list, rename, delete folders
-│   │   └── shareRoutes.js      # Share, list shared, revoke access
-│   ├── uploads/                # Local physical storage directory
-│   ├── server.js               # Unified Express & SPA server
-│   └── package.json
-│
-├── SecureStash.postman_collection.json   # Ready-to-import Postman collection
-├── SecureStash.postman_environment.json  # Postman environment variables
-├── publish.js                  # One-click public internet tunnel
-├── render.yaml                 # One-click Render.com cloud deployment config
-└── package.json                # Root monorepo orchestration
+├── otherthings/                    # Project documentation, presentations & offline assets
+├── DEPLOYMENT_GUIDE.md             # Complete step-by-step cloud hosting guide
+├── render.yaml                     # 1-Click Render.com deployment blueprint
+├── vercel.json                     # Seamless edge redirect to Render
+└── package.json                    # Root monorepo orchestration
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Local Development Setup
 
 ### Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **MongoDB Atlas**: Free cluster connection string or local MongoDB instance
+- [Node.js](https://nodejs.org/) (v18.0.0 or higher)
+- [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) connection URI or local MongoDB instance
 
-### 1. Installation
-Clone the repository and install all dependencies:
+### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/SecureStash.git
-cd SecureStash
+git clone https://github.com/Mohammadaish99/securestash.git
+cd securestash
+```
+
+### 2. Install Dependencies
+```bash
 npm run install:all
 ```
 
-### 2. Environment Configuration
-Create `SecureStash/server/.env`:
+### 3. Configure Environment Variables
+Create a `.env` file inside `SecureStash/server/.env`:
 ```env
 PORT=5000
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/securestash?retryWrites=true&w=majority
-JWT_SECRET=SecureStash_Cryptographic_Secret_2026
+MONGODB_URI=your_mongodb_atlas_connection_string
+JWT_SECRET=your_super_secret_jwt_key_2026
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_gmail_16_character_app_password
+BREVO_API_KEY=your_brevo_api_key_optional
 ```
 
-### 3. Running Locally
-Start both backend server and frontend client concurrently:
+### 4. Run Locally
 ```bash
 npm run dev
 ```
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:5000`
+- **Frontend App**: `http://localhost:5173`
+- **Backend API**: `http://localhost:5000/api`
 
 ---
 
-## 🌐 Instant Public Sharing from Localhost
+## ☁️ 1-Click Cloud Deployment (Render Unified Fullstack)
 
-Want to share your running application with friends or open it on your mobile phone without cloud deployment?
+SecureStash is pre-configured with `render.yaml` for a unified fullstack deployment:
 
-Run:
-```bash
-npm run publish
-```
-*(or double-click `publish-online.bat` on Windows)*
-
-SecureStash will automatically build the latest client, launch the server, and output:
-- ⚡ **Local Wi-Fi URL** (`http://192.168.x.x:5000`): **Instant ~0.1s response** on any phone connected to the same Wi-Fi.
-- 🌐 **Public Worldwide URL**: Accessible from any device on mobile data worldwide.
-
----
-
-## 📬 Postman API Testing Guide
-
-SecureStash includes a fully documented, ready-to-import **Postman Collection v2.1**:
-
-1. Open **Postman**.
-2. Click **Import** &rarr; select `SecureStash.postman_collection.json` and `SecureStash.postman_environment.json`.
-3. Select the **SecureStash Environment**.
-4. Open `1. Authentication > Register User` or `Login User` and click **Send**.
-   - *The Postman test script automatically captures the returned JWT token and stores it in `{{token}}`!*
-5. All subsequent requests in **Folders**, **Files**, and **Sharing & Collaboration** will automatically use your authentication token!
-
-### API Overview
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/register` | Register user with strong password validation | No |
-| `POST` | `/api/auth/login` | Authenticate user & return JWT | No |
-| `POST` | `/api/auth/forgot-password` | Generate 15-min 6-digit recovery code | No |
-| `POST` | `/api/auth/reset-password` | Reset password using recovery code | No |
-| `POST` | `/api/folders` | Create a new folder/workspace | Yes |
-| `GET` | `/api/folders` | List all folders owned by user | Yes |
-| `POST` | `/api/files/upload` | Multipart upload file (up to 50MB) | Yes |
-| `POST` | `/api/files/upload-url` | Stash remote file directly from URL | Yes |
-| `GET` | `/api/files/preview/:id` | Stream/preview file inline in browser | Yes |
-| `GET` | `/api/files/download/:id` | Secure file download (owner or shared) | Yes |
-| `PATCH` | `/api/files/:id/star` | Toggle favorite ⭐ star status | Yes |
-| `POST` | `/api/shares/file/:id` | Share file with user by email | Yes |
-| `POST` | `/api/shares/folder/:id` | Share folder with user by email | Yes |
-| `GET` | `/api/shares/files` | Get all files shared with me | Yes |
-| `GET` | `/api/shares/folders` | Get all folders shared with me | Yes |
-| `DELETE` | `/api/shares/:id` | Revoke collaborator share access | Yes |
-
----
-
-## ☁️ Production Cloud Deployment (Render / Railway)
-
-SecureStash is pre-configured with `render.yaml` for 1-click cloud deployment:
-
-1. Push this repository to **GitHub**.
-2. Log in to [Render.com](https://render.com) &rarr; **New +** &rarr; **Web Service**.
-3. Select your repository.
-4. Render automatically detects the configuration:
+1. Push your repository to GitHub:
+   ```bash
+   git add .
+   git commit -m "Deploy latest SecureStash fullstack vault"
+   git push origin master
+   ```
+2. Go to [Render Dashboard](https://dashboard.render.com) &rarr; **New +** &rarr; **Web Service**.
+3. Select your repository: `Mohammadaish99/securestash`.
+4. Render detects the configuration automatically:
    - **Build Command**: `npm run build`
    - **Start Command**: `npm start`
-5. Add your `MONGODB_URI` in the Environment Variables.
-6. Click **Deploy** &mdash; your app will be live at `https://securestash.onrender.com`!
+5. Add your `MONGODB_URI` and `JWT_SECRET` in **Environment Variables**.
+6. Click **Deploy Web Service** &mdash; your app will be live at `https://securestash.onrender.com`!
+
+---
+
+## 🛡️ API Endpoints Reference
+
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Register new user with strong password & DNS check | No |
+| `POST` | `/api/auth/login` | Sign in with password & receive JWT | No |
+| `POST` | `/api/auth/send-login-otp` | Request passwordless 6-digit login OTP | No |
+| `POST` | `/api/auth/verify-login-otp`| Sign in via verified email OTP | No |
+| `POST` | `/api/auth/forgot-password`| Request password recovery code | No |
+| `POST` | `/api/auth/reset-password` | Set new password with verified recovery code | No |
+| `GET` | `/api/files` | Get all files in personal vault | Yes |
+| `POST` | `/api/files/upload` | Multipart upload to MongoDB Atlas GridFS | Yes |
+| `POST` | `/api/files/upload-url` | Stash remote file directly from external URL | Yes |
+| `GET` | `/api/files/preview/:id` | Stream & preview decrypted file inline | Yes |
+| `GET` | `/api/files/download/:id` | Decrypt and download file attachment | Yes |
+| `DELETE` | `/api/files/:id` | Permanently remove file from GridFS & disk | Yes |
+| `PATCH` | `/api/files/:id/star` | Toggle favorite ⭐ star status | Yes |
+| `GET` | `/api/folders` | List all user folders & hierarchies | Yes |
+| `POST` | `/api/folders` | Create a new vault folder | Yes |
+| `POST` | `/api/shares/file/:id` | Share file with user by email | Yes |
+| `POST` | `/api/shares/folder/:id` | Share workspace folder by email | Yes |
 
 ---
 
 ## 📜 License
-Distributed under the **MIT License**. See `LICENSE` for more information.
+
+This project is licensed under the [MIT License](LICENSE).
