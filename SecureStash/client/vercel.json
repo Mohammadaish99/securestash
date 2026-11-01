@@ -1,12 +1,9 @@
 {
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://securestash.onrender.com/api/:path*"
-    },
+  "redirects": [
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "https://securestash.onrender.com/$1",
+      "permanent": false
     }
   ]
 }

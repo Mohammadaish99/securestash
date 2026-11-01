@@ -1,14 +1,9 @@
 {
-  "buildCommand": "npm --prefix SecureStash/client install && npm --prefix SecureStash/client run build",
-  "outputDirectory": "SecureStash/client/dist",
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://securestash.onrender.com/api/:path*"
-    },
+  "redirects": [
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "https://securestash.onrender.com/$1",
+      "permanent": false
     }
   ]
 }

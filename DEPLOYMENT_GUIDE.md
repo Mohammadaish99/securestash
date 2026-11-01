@@ -1,76 +1,60 @@
-# SecureStash Hosting & Deployment Guide
+# SecureStash Official Cloud Deployment Guide
 
-This guide explains how to host SecureStash on modern cloud platforms.
-
----
-
-## Architecture Overview
-
-SecureStash consists of:
-- **Client (Frontend)**: React 19 + Vite + Tailwind CSS
-- **Server (Backend)**: Node.js + Express + MongoDB (Mongoose) + Multer
+SecureStash is designed for **Unified Fullstack Deployment** on [Render](https://render.com).
+The frontend and backend run together under a single domain (`https://securestash.onrender.com`), eliminating CORS issues, multi-service latency, and payload limits.
 
 ---
 
-## Option 1: Separate Hosting (Recommended)
+## Why Render Unified Hosting is the Best Choice
 
-### 1. Deploy Backend (e.g. on [Render](https://render.com) or [Railway](https://railway.app))
-
-1. Push your repository to GitHub.
-2. In Render, click **New +** > **Web Service**.
-3. Connect your GitHub repository.
-4. Set the following settings:
-   - **Root Directory**: `SecureStash/server`
-   - **Build Command**: `npm install`
-   - **Start Command**: `node server.js`
-5. Under **Environment Variables**, add:
-   - `PORT`: `5000`
-   - `MONGODB_URI`: Your MongoDB Atlas connection string (e.g. `mongodb+srv://...`)
-   - `JWT_SECRET`: A long random secret string (e.g. `my_super_secret_jwt_key_2026`)
-   - `CLIENT_URL`: The URL of your hosted frontend (or `*` to allow all)
-6. Click **Deploy**. Render will generate a URL like `https://securestash-api.onrender.com`.
+1. **Single URL for Everything**: Both the React client and Express API run on `https://securestash.onrender.com`.
+2. **Zero CORS Errors**: Because frontend and backend share the exact same origin, browser CORS blocks cannot happen.
+3. **No 4.5 MB Serverless Limits**: Unlike Vercel (which caps uploads at 4.5 MB), Render allows direct streaming of files up to 50 MB into MongoDB Atlas GridFS.
+4. **Persistent Cloud Vault**: Files are encrypted with AES-256 and stored in MongoDB Atlas GridFS, surviving container restarts.
+5. **Real-time Email OTPs**: Direct HTTPS delivery via Brevo & Gmail SMTP with zero buffering.
 
 ---
 
-### 2. Deploy Frontend (e.g. on [Vercel](https://vercel.com) or [Netlify](https://netlify.com))
+## 1-Click Deployment Steps on Render
 
-1. In Vercel, click **Add New...** > **Project**.
-2. Connect your GitHub repository.
-3. Configure the build settings:
-   - **Root Directory**: `SecureStash/client`
-   - **Framework Preset**: `Vite`
+### Step 1: Push Repository to GitHub
+Ensure your latest code is pushed to your GitHub repository:
+```bash
+git add .
+git commit -m "Configure Render unified fullstack deployment"
+git push origin master
+```
+
+### Step 2: Create Web Service on Render
+1. Log in to [dashboard.render.com](https://dashboard.render.com).
+2. Click **New +** &rarr; **Web Service**.
+3. Select your GitHub repository (`Mohammadaish99/securestash`).
+4. Configure the service settings:
+   - **Name**: `securestash`
+   - **Region**: Closest to you (e.g. Singapore / Frankfurt / Oregon)
+   - **Branch**: `master`
+   - **Root Directory**: *(Leave empty / blank)*
+   - **Runtime**: `Node`
    - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-4. Under **Environment Variables**, add:
-   - `VITE_API_URL`: Your backend API URL from step 1 (e.g. `https://securestash-api.onrender.com/api`)
-5. Click **Deploy**.
-
----
-
-## Option 2: Fullstack Unified Deployment (Single Service)
-
-You can host both frontend and backend together on a single Render or Railway Web Service. The backend is configured to automatically serve the client's built assets when deployed together.
-
-1. In Render, create a **Web Service**:
-   - **Root Directory**: Leave blank (monorepo root)
-   - **Build Command**: `npm run install:all && npm run build`
    - **Start Command**: `npm start`
-2. Set Environment Variables:
-   - `PORT`: `5000`
-   - `MONGODB_URI`: Your MongoDB Atlas connection string
-   - `JWT_SECRET`: A long random secret string
-   - `CLIENT_URL`: `*`
-3. Deploy! The server will serve the frontend from `/` and API routes from `/api`.
+   - **Plan**: `Free`
 
----
+### Step 3: Add Environment Variables
+Under **Environment Variables**, add:
+- `NODE_ENV`: `production`
+- `PORT`: `5000`
+- `MONGODB_URI`: `your_mongodb_atlas_connection_string`
+- `JWT_SECRET`: `your_random_secret_string`
+- `CLIENT_URL`: `*`
+- `EMAIL_USER`: `your_email@gmail.com`
+- `EMAIL_PASS`: `your_gmail_app_password`
+- `BREVO_API_KEY`: `your_brevo_api_key`
 
-## Features Added & Verified
+### Step 4: Click "Deploy Web Service"
+Render will:
+1. Build the React frontend with Vite into `SecureStash/client/dist`.
+2. Install server dependencies.
+3. Start the Express server.
+4. Express serves the frontend at `/` and the API at `/api`.
 
-- **Dynamic Backend URL**: Client dynamically switches between localhost and hosted URL via `VITE_API_URL`.
-- **Upload File**: Select and upload any file directly from your computer with real-time feedback.
-- **Upload from URL**: Stash images or documents directly by entering an external URL.
-- **Delete File**: Permanently remove files from cloud disk and database.
-- **Download File**: Direct download via API or token.
-- **Open / Preview**: Direct link to view files in a new tab.
-- **Live Search**: Instant filtering for files and folders.
-- **Dynamic Storage**: Automatic calculation of space used out of 10 GB.
+Your app is live at: **`https://securestash.onrender.com`**
