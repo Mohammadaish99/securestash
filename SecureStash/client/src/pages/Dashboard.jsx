@@ -31,6 +31,9 @@ function Dashboard({ onLogout }) {
   const [shareItem, setShareItem] = useState(null);
   const [shareItemType, setShareItemType] = useState("file");
 
+  // In-App File Preview Modal
+  const [previewFile, setPreviewFile] = useState(null);
+
   // Filters & Views (Notion / Google Drive Style)
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [viewMode, setViewMode] = useState("list"); // 'list' | 'grid'
@@ -506,6 +509,10 @@ function Dashboard({ onLogout }) {
         setError(err.response?.data?.message || "Download restricted: This file has been shared with View-Only permissions.");
         return;
       }
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+        return;
+      }
       const fallbackUrl = `${API_BASE_URL}/files/download/${file._id}?token=${token}`;
       window.open(fallbackUrl, "_blank");
     } finally {
@@ -536,12 +543,11 @@ function Dashboard({ onLogout }) {
   };
 
   // ===============================
-  // PREVIEW / OPEN FILE
+  // PREVIEW / OPEN FILE (IN-APP MODAL + TAB FALLBACK)
   // ===============================
   const openFile = (file) => {
-    if (!file._id) return;
-    const previewUrl = `${API_BASE_URL}/files/preview/${file._id}?token=${token}`;
-    window.open(previewUrl, "_blank", "noopener,noreferrer");
+    if (!file || !file._id) return;
+    setPreviewFile(file);
   };
 
   // ===============================
@@ -1934,6 +1940,118 @@ function Dashboard({ onLogout }) {
           </div>
         </section>
       </main>
+
+      {/* ================= IN-APP FILE PREVIEW MODAL ================= */}
+      {previewFile && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50 animate-fade-in">
+          <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/70">
+              <div className="flex items-center gap-3 overflow-hidden pr-3">
+                <span className="text-2xl shrink-0">
+                  {(previewFile.fileType || "").startsWith("image/")
+                    ? "🖼️"
+                    : (previewFile.fileType || "").includes("pdf")
+                    ? "📄"
+                    : (previewFile.fileType || "").startsWith("video/")
+                    ? "🎬"
+                    : (previewFile.fileType || "").startsWith("audio/")
+                    ? "🎵"
+                    : "📁"}
+                </span>
+                <div className="overflow-hidden">
+                  <h3 className="font-bold text-white text-sm sm:text-base truncate">
+                    {previewFile.originalName}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {formatFileSize(previewFile.fileSize)} &bull; {previewFile.fileType || "File"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => downloadFile(previewFile)}
+                  className="px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 text-xs font-semibold flex items-center gap-1.5 transition border border-blue-500/30"
+                  title="Download File"
+                >
+                  <span>⬇️</span> <span className="hidden sm:inline">Download</span>
+                </button>
+                <a
+                  href={`${API_BASE_URL}/files/preview/${previewFile._id}?token=${token}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition border border-slate-700"
+                  title="Open in Full Browser Tab"
+                >
+                  <span>↗️</span> <span className="hidden sm:inline">Full Tab</span>
+                </a>
+                <button
+                  onClick={() => setPreviewFile(null)}
+                  className="w-8 h-8 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition text-sm ml-1"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-auto p-4 sm:p-6 flex items-center justify-center bg-slate-950/70 min-h-[300px]">
+              {(previewFile.fileType || "").startsWith("image/") ? (
+                <img
+                  src={`${API_BASE_URL}/files/preview/${previewFile._id}?token=${token}`}
+                  alt={previewFile.originalName}
+                  className="max-h-[72vh] max-w-full rounded-2xl object-contain shadow-2xl ring-1 ring-white/10"
+                />
+              ) : (previewFile.fileType || "").includes("pdf") ? (
+                <iframe
+                  src={`${API_BASE_URL}/files/preview/${previewFile._id}?token=${token}`}
+                  title={previewFile.originalName}
+                  className="w-full h-[68vh] rounded-2xl border border-slate-800 bg-white"
+                />
+              ) : (previewFile.fileType || "").startsWith("video/") ? (
+                <video
+                  src={`${API_BASE_URL}/files/preview/${previewFile._id}?token=${token}`}
+                  controls
+                  className="max-h-[70vh] max-w-full rounded-2xl"
+                />
+              ) : (previewFile.fileType || "").startsWith("audio/") ? (
+                <div className="p-8 text-center bg-slate-900 rounded-2xl border border-slate-800">
+                  <div className="text-5xl mb-4">🎵</div>
+                  <audio
+                    src={`${API_BASE_URL}/files/preview/${previewFile._id}?token=${token}`}
+                    controls
+                    className="w-full min-w-[280px]"
+                  />
+                </div>
+              ) : (
+                <div className="text-center p-6 sm:p-10">
+                  <div className="text-6xl mb-4">📄</div>
+                  <h4 className="text-lg font-bold text-white mb-2">{previewFile.originalName}</h4>
+                  <p className="text-sm text-slate-400 max-w-md mx-auto mb-6">
+                    This file format ({previewFile.fileType || "Document"}) can be downloaded or previewed directly in a separate browser tab.
+                  </p>
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={() => downloadFile(previewFile)}
+                      className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition shadow-lg shadow-blue-500/25 flex items-center gap-2"
+                    >
+                      <span>⬇️</span> Download File
+                    </button>
+                    <a
+                      href={`${API_BASE_URL}/files/preview/${previewFile._id}?token=${token}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm transition border border-slate-700 flex items-center gap-2"
+                    >
+                      <span>↗️</span> Open in New Tab
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================= COLLABORATIVE SHARE MODAL ================= */}
       {shareItem && (

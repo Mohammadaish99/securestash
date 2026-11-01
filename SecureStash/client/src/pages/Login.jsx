@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import API from "../api/api";
 
-function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
+function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "", initialNotice = "" }) {
   const [authMethod, setAuthMethod] = useState("password"); // "password" | "otp"
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
@@ -14,7 +14,7 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialNotice);
 
   // 30-Second Resend Countdown Timer
   useEffect(() => {
@@ -56,9 +56,21 @@ function Login({ onRegister, onSuccess, onForgotPassword, initialEmail = "" }) {
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError(
-        err.response?.data?.message || "Invalid email or password. Please try again."
-      );
+      const isNetworkErr = err.code === "ERR_NETWORK" || err.message?.includes("Network Error");
+      const is503 = err.response?.status === 503;
+      const is404 = err.response?.status === 404;
+
+      if (is503) {
+        setError(err.response?.data?.message || "SecureStash database is initializing. Please wait 10 seconds and try again.");
+      } else if (isNetworkErr) {
+        setError("Connecting to SecureStash cloud server... Free cloud hosting takes ~30s to wake up on first visit. Please retry in a moment.");
+      } else if (is404) {
+        setError("Could not reach backend service. Please refresh and try again.");
+      } else {
+        setError(
+          err.response?.data?.message || "Invalid email or password. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }

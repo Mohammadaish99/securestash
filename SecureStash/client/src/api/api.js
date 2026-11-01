@@ -2,23 +2,7 @@ import axios from "axios";
 
 // Resolve API base URL dynamically at RUNTIME in the browser
 const getApiBaseUrl = () => {
-  // 1. If running in a browser
-  if (typeof window !== "undefined" && window.location) {
-    const { origin, hostname, port } = window.location;
-
-    // If served from Express (port 5000) or via public tunnel (e.g. .lhr.life), custom domain, or local IP:
-    // Any port other than Vite dev server (5173) means frontend is served from backend or reverse proxy!
-    if (port !== "5173") {
-      return `${origin}/api`;
-    }
-
-    // If on Vite dev server (port 5173) accessed from a mobile phone / local network IP
-    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
-      return `http://${hostname}:5000/api`;
-    }
-  }
-
-  // 2. If an explicit environment variable is set and not pointing to localhost
+  // 1. Explicit environment variable has top priority
   const envUrl = import.meta.env.VITE_API_URL;
   if (
     envUrl &&
@@ -29,8 +13,30 @@ const getApiBaseUrl = () => {
     return cleanUrl.endsWith("/api") ? cleanUrl : `${cleanUrl}/api`;
   }
 
-  // 3. Default fallback for local developer machine
-  return "http://localhost:5000/api";
+  // 2. Runtime browser detection
+  if (typeof window !== "undefined" && window.location) {
+    const { origin, hostname, port } = window.location;
+
+    // A. Deployed on Vercel (*.vercel.app) -> Connect to live Render backend
+    if (hostname.endsWith("vercel.app") || hostname.includes("vercel")) {
+      return "https://securestash.onrender.com/api";
+    }
+
+    // B. Running on Vite dev server (port 5173)
+    if (port === "5173") {
+      // If accessed from mobile phone on same Wi-Fi
+      if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+        return `http://${hostname}:5000/api`;
+      }
+      return "http://localhost:5000/api";
+    }
+
+    // C. Hosted on Render (*.onrender.com), custom domain, or served directly from Express
+    return `${origin}/api`;
+  }
+
+  // 3. Fallback for static builds
+  return "https://securestash.onrender.com/api";
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -39,7 +45,8 @@ export const API_BASE_URL = getApiBaseUrl();
 export const BACKEND_URL = API_BASE_URL.replace(/\/api$/, "");
 
 const API = axios.create({
-  baseURL: API_BASE_URL
+  baseURL: API_BASE_URL,
+  timeout: 30000 // 30s timeout to allow Render free tier cold-start wake up
 });
 
 API.interceptors.request.use((config) => {
@@ -51,5 +58,27 @@ API.interceptors.request.use((config) => {
   config.headers["bypass-tunnel-reminder"] = "true";
   return config;
 });
+
+// Auto-handle 401 token expiration across all API calls
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const hadToken = !!localStorage.getItem("securestash_token");
+      if (hadToken) {
+        localStorage.removeItem("securestash_token");
+        localStorage.removeItem("securestash_user");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("securestash_auth_expired", {
+              detail: { message: "Your session has expired. Please sign in again." }
+            })
+          );
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default API;

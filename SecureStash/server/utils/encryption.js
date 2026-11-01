@@ -10,22 +10,43 @@ function getEncryptionKey() {
     return crypto.scryptSync(secret, "securestash_salt_key_vault", 32);
 }
 
-function encryptFileInPlace(filePath) {
-    if (!fs.existsSync(filePath)) return;
-
-    const rawBuffer = fs.readFileSync(filePath);
+function encryptBuffer(rawBuffer) {
+    if (!rawBuffer || rawBuffer.length === 0) return rawBuffer;
     if (rawBuffer.length >= MAGIC_HEADER.length &&
         rawBuffer.subarray(0, MAGIC_HEADER.length).equals(MAGIC_HEADER)) {
-        return;
+        return rawBuffer;
     }
 
     const key = getEncryptionKey();
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
     const encryptedData = Buffer.concat([cipher.update(rawBuffer), cipher.final()]);
+    return Buffer.concat([MAGIC_HEADER, iv, encryptedData]);
+}
 
-    const finalBuffer = Buffer.concat([MAGIC_HEADER, iv, encryptedData]);
-    fs.writeFileSync(filePath, finalBuffer);
+function decryptBuffer(buffer) {
+    if (!buffer || buffer.length < MAGIC_HEADER.length ||
+        !buffer.subarray(0, MAGIC_HEADER.length).equals(MAGIC_HEADER)) {
+        return buffer;
+    }
+
+    const key = getEncryptionKey();
+    const iv = buffer.subarray(MAGIC_HEADER.length, MAGIC_HEADER.length + IV_LENGTH);
+    const encryptedData = buffer.subarray(MAGIC_HEADER.length + IV_LENGTH);
+
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    const decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
+    return decrypted;
+}
+
+function encryptFileInPlace(filePath) {
+    if (!fs.existsSync(filePath)) return;
+
+    const rawBuffer = fs.readFileSync(filePath);
+    const finalBuffer = encryptBuffer(rawBuffer);
+    if (finalBuffer !== rawBuffer) {
+        fs.writeFileSync(filePath, finalBuffer);
+    }
 }
 
 function decryptFileToBuffer(filePath) {
@@ -34,18 +55,7 @@ function decryptFileToBuffer(filePath) {
     }
 
     const fileBuffer = fs.readFileSync(filePath);
-    if (fileBuffer.length < MAGIC_HEADER.length ||
-        !fileBuffer.subarray(0, MAGIC_HEADER.length).equals(MAGIC_HEADER)) {
-        return fileBuffer;
-    }
-
-    const key = getEncryptionKey();
-    const iv = fileBuffer.subarray(MAGIC_HEADER.length, MAGIC_HEADER.length + IV_LENGTH);
-    const encryptedData = fileBuffer.subarray(MAGIC_HEADER.length + IV_LENGTH);
-
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-    const decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
-    return decrypted;
+    return decryptBuffer(fileBuffer);
 }
 
 const path = require("path");
@@ -67,7 +77,10 @@ function encryptAllExistingUploads(uploadsDir) {
 }
 
 module.exports = {
+    encryptBuffer,
+    decryptBuffer,
     encryptFileInPlace,
     decryptFileToBuffer,
     encryptAllExistingUploads
 };
+

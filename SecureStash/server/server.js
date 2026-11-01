@@ -23,6 +23,7 @@ app.set("trust proxy", true);
 // UPLOADS DIRECTORY INITIALIZATION & AES-256 VAULT ENCRYPTION
 // ===============================
 const { encryptAllExistingUploads } = require("./utils/encryption");
+const { migrateDiskFilesToGridFS } = require("./utils/gridfs");
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
@@ -133,8 +134,17 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 async function startServer() {
-    connectDB().catch((err) => {
+    connectDB().then(() => {
+        migrateDiskFilesToGridFS(uploadsDir).catch((e) => {
+            console.warn("GridFS startup migration notice:", e.message);
+        });
+    }).catch((err) => {
         console.warn("⚠️ Initial Atlas connection pending. Server is running and will auto-reconnect once IP is whitelisted on Atlas.");
+    });
+
+    // Also trigger migration if connection re-establishes later
+    mongoose.connection.on("reconnected", () => {
+        migrateDiskFilesToGridFS(uploadsDir).catch(() => {});
     });
 
     app.listen(PORT, () => {

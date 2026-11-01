@@ -9,6 +9,11 @@ const Folder = require("../models/Folder");
 const Share = require("../models/Share");
 const protect = require("../middleware/authMiddleware");
 const { encryptFileInPlace, decryptFileToBuffer } = require("../utils/encryption");
+const {
+    uploadBufferToGridFS,
+    getFileBufferFromGridFS,
+    deleteFileFromGridFS
+} = require("../utils/gridfs");
 
 const router = express.Router();
 
@@ -114,6 +119,18 @@ router.post("/upload", protect, upload.single("file"), async (req, res) => {
             console.error("AES-256 In-Place Encryption Error:", encErr);
         }
 
+        // Persist file into MongoDB Atlas GridFS so it survives all cloud container sleeps & restarts
+        try {
+            const encryptedData = fs.readFileSync(savedFilePath);
+            await uploadBufferToGridFS(req.file.filename, encryptedData, {
+                originalName: req.file.originalname,
+                contentType: req.file.mimetype,
+                owner: req.user
+            });
+        } catch (gridErr) {
+            console.error("GridFS Persistence Error (upload):", gridErr.message);
+        }
+
         const savedFile = await File.create({
             name: req.file.filename,
             originalName: req.file.originalname,
@@ -206,6 +223,18 @@ router.post("/upload-url", protect, async (req, res) => {
             encryptFileInPlace(destinationPath);
         } catch (encErr) {
             console.error("AES-256 In-Place Encryption Error (URL upload):", encErr);
+        }
+
+        // Persist file into MongoDB Atlas GridFS
+        try {
+            const encryptedData = fs.readFileSync(destinationPath);
+            await uploadBufferToGridFS(uniqueName, encryptedData, {
+                originalName: originalName,
+                contentType: contentType.split(";")[0],
+                owner: req.user
+            });
+        } catch (gridErr) {
+            console.error("GridFS Persistence Error (URL upload):", gridErr.message);
         }
 
         let targetFolder = null;
@@ -319,15 +348,29 @@ router.get("/download/:id", protect, async (req, res) => {
             });
         }
 
-        const filePath = path.join(uploadsDir, file.name);
+        let decryptedBuffer = null;
+        try {
+            const gridResult = await getFileBufferFromGridFS(file.name);
+            if (gridResult && gridResult.buffer) {
+                decryptedBuffer = gridResult.buffer;
+            }
+        } catch (gErr) {
+            console.warn("GridFS download fallback:", gErr.message);
+        }
 
-        if (!fs.existsSync(filePath)) {
+        if (!decryptedBuffer) {
+            const filePath = path.join(uploadsDir, file.name);
+            if (fs.existsSync(filePath)) {
+                decryptedBuffer = decryptFileToBuffer(filePath);
+            }
+        }
+
+        if (!decryptedBuffer) {
             return res.status(404).json({
-                message: "File does not exist on storage disk"
+                message: "File content not found in persistent vault. This file may have been uploaded prior to cloud persistence."
             });
         }
 
-        const decryptedBuffer = decryptFileToBuffer(filePath);
         res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(file.originalName)}"`);
         res.setHeader("Content-Type", file.fileType || "application/octet-stream");
         res.setHeader("Content-Length", decryptedBuffer.length);
@@ -387,14 +430,29 @@ router.get("/preview/:id", protect, async (req, res) => {
             });
         }
 
-        const filePath = path.join(uploadsDir, file.name);
-        if (!fs.existsSync(filePath)) {
+        let decryptedBuffer = null;
+        try {
+            const gridResult = await getFileBufferFromGridFS(file.name);
+            if (gridResult && gridResult.buffer) {
+                decryptedBuffer = gridResult.buffer;
+            }
+        } catch (gErr) {
+            console.warn("GridFS preview fallback:", gErr.message);
+        }
+
+        if (!decryptedBuffer) {
+            const filePath = path.join(uploadsDir, file.name);
+            if (fs.existsSync(filePath)) {
+                decryptedBuffer = decryptFileToBuffer(filePath);
+            }
+        }
+
+        if (!decryptedBuffer) {
             return res.status(404).json({
-                message: "File missing on disk"
+                message: "File content not found in persistent vault. This file may have been uploaded prior to cloud persistence."
             });
         }
 
-        const decryptedBuffer = decryptFileToBuffer(filePath);
         res.setHeader("Content-Type", file.fileType || "application/octet-stream");
         res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file.originalName)}"`);
         res.setHeader("Content-Length", decryptedBuffer.length);
@@ -463,6 +521,13 @@ router.delete("/:id", protect, async (req, res) => {
             } catch (err) {
                 console.warn("Could not delete physical file:", err.message);
             }
+        }
+
+        // Delete permanently from MongoDB Atlas GridFS
+        try {
+            await deleteFileFromGridFS(file.name);
+        } catch (gErr) {
+            console.warn("GridFS delete notice:", gErr.message);
         }
 
         // Delete associated shares

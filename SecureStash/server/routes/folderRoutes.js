@@ -1,6 +1,8 @@
 const express = require("express");
 
 const Folder = require("../models/Folder");
+const File = require("../models/File");
+const Share = require("../models/Share");
 const protect = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -132,8 +134,6 @@ router.delete("/:id", protect, async (req, res) => {
         }
 
         // Clean up: move files to root (folder: null) and delete folder shares
-        const File = require("../models/File");
-        const Share = require("../models/Share");
         await File.updateMany(
             { folder: folder._id, owner: req.user },
             { folder: null }

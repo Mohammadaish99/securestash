@@ -48,9 +48,18 @@ function ForgotPassword({ onBackToLogin }) {
       setStep(2);
     } catch (err) {
       console.error("Forgot Password Error:", err);
-      setError(
-        err.response?.data?.message || "Failed to generate recovery code."
-      );
+      const isNetworkErr = err.code === "ERR_NETWORK" || err.message?.includes("Network Error");
+      const is503 = err.response?.status === 503;
+
+      if (is503) {
+        setError(err.response?.data?.message || "Server is initializing. Please wait a few seconds and try again.");
+      } else if (isNetworkErr) {
+        setError("Connecting to SecureStash server... Free cloud hosting takes ~30s to wake up. Please wait a moment and click again.");
+      } else {
+        setError(
+          err.response?.data?.message || "Failed to generate recovery code. Please verify your email."
+        );
+      }
     } finally {
       setLoading(false);
     }

@@ -40,6 +40,19 @@ function App() {
     localStorage.getItem("securestash_token") ? "dashboard" : "login"
   );
   const [authEmail, setAuthEmail] = useState("");
+  const [sessionNotice, setSessionNotice] = useState("");
+
+  useEffect(() => {
+    const handleAuthExpired = (e) => {
+      setSessionNotice(e.detail?.message || "Your session has expired. Please log in again.");
+      setPage("login");
+    };
+
+    window.addEventListener("securestash_auth_expired", handleAuthExpired);
+    return () => {
+      window.removeEventListener("securestash_auth_expired", handleAuthExpired);
+    };
+  }, []);
 
   useEffect(() => {
     const handleLocationChange = () => {
@@ -118,6 +131,7 @@ function App() {
     return (
       <Login
         initialEmail={authEmail}
+        initialNotice={sessionNotice}
         onRegister={() => setPage("register")}
         onForgotPassword={() => setPage("forgot-password")}
         onSuccess={handleLoginSuccess}

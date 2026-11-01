@@ -7,3 +7,14 @@ node_modules/
 !**/data/.gitkeep
 .vscode/
 .idea/
+
+# External materials, documents, presentations & temp files
+otherthings/
+*.docx
+*.pptx
+*.pdf
+~$*
+*.pyc
+__pycache__/
+.DS_Store
+Thumbs.db

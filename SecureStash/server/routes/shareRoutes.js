@@ -8,6 +8,7 @@ const Folder = require("../models/Folder");
 const User = require("../models/User");
 const protect = require("../middleware/authMiddleware");
 const { decryptFileToBuffer } = require("../utils/encryption");
+const { getFileBufferFromGridFS } = require("../utils/gridfs");
 
 const router = express.Router();
 const uploadsDir = path.join(__dirname, "../uploads");
@@ -61,14 +62,29 @@ router.get("/public/download/:id", async (req, res) => {
             });
         }
 
-        const filePath = path.join(uploadsDir, file.name);
-        if (!fs.existsSync(filePath)) {
+        let decryptedBuffer = null;
+        try {
+            const gridResult = await getFileBufferFromGridFS(file.name);
+            if (gridResult && gridResult.buffer) {
+                decryptedBuffer = gridResult.buffer;
+            }
+        } catch (gErr) {
+            console.warn("GridFS public download fallback:", gErr.message);
+        }
+
+        if (!decryptedBuffer) {
+            const filePath = path.join(uploadsDir, file.name);
+            if (fs.existsSync(filePath)) {
+                decryptedBuffer = decryptFileToBuffer(filePath);
+            }
+        }
+
+        if (!decryptedBuffer) {
             return res.status(404).json({
-                message: "File content not found on server disk."
+                message: "Shared file content not found in persistent vault."
             });
         }
 
-        const decryptedBuffer = decryptFileToBuffer(filePath);
         res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(file.originalName)}"`);
         res.setHeader("Content-Type", file.fileType || "application/octet-stream");
         res.setHeader("Content-Length", decryptedBuffer.length);
@@ -93,14 +109,29 @@ router.get("/public/preview/:id", async (req, res) => {
             });
         }
 
-        const filePath = path.join(uploadsDir, file.name);
-        if (!fs.existsSync(filePath)) {
+        let decryptedBuffer = null;
+        try {
+            const gridResult = await getFileBufferFromGridFS(file.name);
+            if (gridResult && gridResult.buffer) {
+                decryptedBuffer = gridResult.buffer;
+            }
+        } catch (gErr) {
+            console.warn("GridFS public preview fallback:", gErr.message);
+        }
+
+        if (!decryptedBuffer) {
+            const filePath = path.join(uploadsDir, file.name);
+            if (fs.existsSync(filePath)) {
+                decryptedBuffer = decryptFileToBuffer(filePath);
+            }
+        }
+
+        if (!decryptedBuffer) {
             return res.status(404).json({
-                message: "File content not found on server disk."
+                message: "Shared file content not found in persistent vault."
             });
         }
 
-        const decryptedBuffer = decryptFileToBuffer(filePath);
         res.setHeader("Content-Type", file.fileType || "application/octet-stream");
         res.setHeader(
             "Content-Disposition",
